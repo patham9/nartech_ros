@@ -1,4 +1,7 @@
-if [ "$1" == "fast" ]; then
+if [ "$2" != "nogrid" ] && [ "$1" != "nogrid" ]; then
+    python3 /home/nartech/nartech_ws/src/nartech_ros/channels/grid.py &
+fi
+if [ "$1" == "fast" ] || [ "$2" == "fast" ]; then
     export MY_WORLD=/opt/ros/jazzy/share/nav2_minimal_tb4_sim/worlds/warehouse.sdf
     export QT_QPA_PLATFORM=xcb
     export LIBGL_ALWAYS_SOFTWARE=1

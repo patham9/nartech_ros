@@ -28,8 +28,13 @@ class NaceopCommandPublisher(Node):
 
     def nacedone_callback(self, msg):
         command = msg.data.lower()
-        if command == "done":
-            self.get_logger().info(f"Move done: {command}")
+        if command != "notdone":
+            current_time = time.time()
+            message_time = float(command)
+            if current_time - message_time > 1:
+                self.get_logger().warn("Received an old message; ignoring it.")
+                return
+            self.get_logger().info(f"Move done")
             self.get_logger().info("Shutting down the node...")
             raise SystemExit
 

@@ -46,10 +46,13 @@ class LowResGridMapPublisher(Node):
         self.robot_lowres_x = None
         self.robot_lowres_y = None
         self.new_data = None
+        self.mapupdate = 0
+        self.goalstart = 0
         self.new_width = 0
 
     def occ_grid_callback(self, msg):
         # Get original grid map data
+        self.mapupdate += 1
         start_time = time.time()
         self.get_logger().info("NEW PROCESSING")
         original_width = msg.info.width
@@ -144,6 +147,7 @@ class LowResGridMapPublisher(Node):
         return 0  # Mark as free if no occupied cells are found
 
     def naceop_callback(self, msg):
+        self.goalstart = self.mapupdate #current mapupdate
         command = msg.data.lower()
         self.get_logger().info(f"Received command: {command}")
         if self.robot_lowres_x is None:
@@ -162,7 +166,7 @@ class LowResGridMapPublisher(Node):
         idx = cell_y * self.new_width + cell_x
         if self.new_data[idx] != 0:
             self.get_logger().info(f"COLLISION!!!")
-            self.publish_done()
+            self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
             return
         goal_pose = PoseStamped()
         goal_pose.header.frame_id = 'map'  # Ensure the frame matches your map
@@ -174,6 +178,7 @@ class LowResGridMapPublisher(Node):
         # Check if the action client is available
         if not self.action_client.wait_for_server(timeout_sec=1.0):
             self.get_logger().error("Action server not available!")
+            self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
             return
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose = goal_pose
@@ -185,7 +190,7 @@ class LowResGridMapPublisher(Node):
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().info("Goal rejected")
-            self.publish_done()
+            self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
             return
         self.get_logger().info("Goal accepted, waiting for result")
         result_future = goal_handle.get_result_async()
@@ -197,12 +202,23 @@ class LowResGridMapPublisher(Node):
             self.get_logger().info("Goal succeeded!")
         else:
             self.get_logger().info("Goal failed with status: {0}".format(result.status))
-        self.publish_done()
+        self.publish_done(force_mapupdate = True) #in this the goal was reached or it was at least attempted
 
-    def publish_done(self):
+    def publish_done(self, force_mapupdate):
         # Publish the 'done' message
+        if force_mapupdate:
+            waittime = 0.1
+            while self.mapupdate == self.goalstart: #TODO better solution, but we want to force a map update
+                if waittime == 0.1:
+                    self.get_logger().info("Waiting for map update!")
+                miniwait = 0.1
+                time.sleep(miniwait)
+                waittime += miniwait
+                if waittime > 10.0: #don't wait more than 10s
+                    self.get_logger().warn("Wait time exceeded, finishing nevertheless!")
+                    break
         msg = String()
-        msg.data = "done"
+        msg.data = str(time.time())
         self.nacedone_pub.publish(msg)
         self.get_logger().info("Published 'done' to /nacedone")
 
