@@ -130,7 +130,7 @@ class LowResGridMapPublisher(Node):
         self.origin = msg.info.origin
         lowres_msg.data = new_data
         if robot_lowres_x is not None:
-            with open("/home/nartech/grid.txt","w") as f:
+            with open("/home/nartech/nartech_ws/src/nartech_ros/channels/grid.txt","w") as f:
                 f.write(str(new_width) + "\n" + str(new_height) + "\n" + str(robot_lowres_x) + '\n' + str(robot_lowres_y) + "\n" + str(new_data))
         self.lowres_grid_pub.publish(lowres_msg)
 
