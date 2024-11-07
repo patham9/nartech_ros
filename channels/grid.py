@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 import rclpy
 import time
+import numpy as np
+import cv2
+import threading
 from rclpy.node import Node
 from nav_msgs.msg import OccupancyGrid
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
 from geometry_msgs.msg import TransformStamped, PoseStamped
 from std_msgs.msg import String
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+import tf2_geometry_msgs
 import tf2_ros
 from tf2_ros.buffer import Buffer
+from geometry_msgs.msg import PointStamped, Point
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
 from action_msgs.msg import GoalStatus
-from nav2_msgs.msg import Costmap
+from std_msgs.msg import Header
+from rclpy.duration import Duration
+from rclpy.time import Time
 
 class LowResGridMapPublisher(Node):
     def __init__(self):
@@ -21,19 +30,23 @@ class LowResGridMapPublisher(Node):
         qos_profile_str.history = QoSHistoryPolicy.KEEP_LAST
         qos_profile_str.durability = QoSDurabilityPolicy.TRANSIENT_LOCAL
         qos_profile_str.reliability = QoSReliabilityPolicy.RELIABLE
-        # Define QoS to keep only the latest image for maps:
-        qos_profile = QoSProfile(depth=10)
-        qos_profile.history = QoSHistoryPolicy.KEEP_LAST
-        qos_profile.durability = QoSDurabilityPolicy.TRANSIENT_LOCAL
+        # Define QoS to keep map
+        qos_profile_map = QoSProfile(depth=1)
+        qos_profile_map.history = QoSHistoryPolicy.KEEP_LAST
+        qos_profile_map.durability = QoSDurabilityPolicy.TRANSIENT_LOCAL
+        # Define QoS to keep only the latest image
+        qos_profile_yolo = QoSProfile(depth=1)
+        qos_profile_yolo.history = QoSHistoryPolicy.KEEP_LAST
+        qos_profile_yolo.durability = QoSDurabilityPolicy.VOLATILE
         # Parameters for resolution reduction
         self.downsample_factor = 20  # Change as needed
         # TF2 buffer and listener
         self.tf_buffer = Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         # Subscribing to the occupancy grid map
-        self.occ_grid_sub = self.create_subscription(OccupancyGrid, '/map', self.occ_grid_callback, qos_profile)
+        self.occ_grid_sub = self.create_subscription(OccupancyGrid, '/map', self.occ_grid_callback, qos_profile_map)
         # Publisher for the low-resolution grid map
-        self.lowres_grid_pub = self.create_publisher(OccupancyGrid, '/lowres_map', qos_profile)
+        self.lowres_grid_pub = self.create_publisher(OccupancyGrid, '/lowres_map', qos_profile_map)
         # Subscriber to listen for movement commands
         self.naceop_sub = self.create_subscription(String, '/naceop', self.naceop_callback, qos_profile_str)
         # Publisher to indicate movement completion
@@ -42,50 +55,195 @@ class LowResGridMapPublisher(Node):
         self.action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         # value that are set later after messages are received
         self.origin = None
-        self.resolution = None
         self.robot_lowres_x = None
         self.robot_lowres_y = None
-        self.new_data = None
+        self.low_res_grid = None
         self.mapupdate = 0
         self.goalstart = 0
         self.new_width = 0
+        #YOLO:
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+        # Initialize CV bridge and other parameters
+        self.bridge = CvBridge()
+        self.processing = False
+        self.detections = None
+        self.lock = threading.Lock()
+        # Subscribe to RGB camera images
+        self.create_subscription(Image, '/rgbd_camera/image', self.image_callback, qos_profile_yolo)
+        # Subscribe to depth images
+        self.create_subscription(Image, '/rgbd_camera/depth_image', self.depth_callback, qos_profile_yolo)
+        # Load YOLO model
+        self.net = cv2.dnn.readNet('yolov4-tiny.weights', 'yolov4-tiny.cfg')
+        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+        self.image_pub = self.create_publisher(Image, '/yolo_output/image', qos_profile_yolo)
+        self.image_width = 320
+        self.image_height = 240
+        self.horizontal_fov = 1.25  # in radians
+        # Calculate the focal lengths
+        self.fx = self.image_width / (2 * np.tan(self.horizontal_fov / 2))
+        self.fy = self.image_height / (2 * np.tan(self.horizontal_fov / 2))
+        self.depth_image = None
+        # Load class names (assuming you have a 'coco.names' file)
+        with open('coco.names', 'r') as f:
+            self.classes = [line.strip() for line in f.readlines()]
+
+    # Helper function to compute low-res grid coordinates
+    def get_lowres_position(self, world_x, world_y, original_origin, original_resolution):
+        # Calculate low-resolution grid coordinates
+        grid_x = int((world_x - original_origin.position.x) / original_resolution)
+        grid_y = int((world_y - original_origin.position.y) / original_resolution)
+        return grid_x, grid_y
 
     def occ_grid_callback(self, msg):
-        # Get original grid map data
-        self.mapupdate += 1
         start_time = time.time()
-        self.get_logger().info("NEW PROCESSING")
+        self.get_logger().info("NEW PROCESSING: OCC GRID")
+        # Get original grid map data
         original_width = msg.info.width
         original_height = msg.info.height
         original_resolution = msg.info.resolution
         original_origin = msg.info.origin
         original_data = msg.data
         # Compute new width and height
-        new_width = original_width // self.downsample_factor
-        new_height = original_height // self.downsample_factor
-        new_resolution = original_resolution * self.downsample_factor
+        self.new_width = original_width // self.downsample_factor
+        self.new_height = original_height // self.downsample_factor
+        self.new_resolution = original_resolution * self.downsample_factor
         # If original dimensions are not evenly divisible, adjust the boundaries
         if original_width % self.downsample_factor != 0:
-            new_width += 1
+            self.new_width += 1
         if original_height % self.downsample_factor != 0:
-            new_height += 1
+            self.new_height += 1
         # Initialize new grid map data with zeros (free)
-        new_data = [0] * (new_width * new_height)
-        self.new_data = new_data
-        self.new_width = new_width
+        self.low_res_grid = [0] * (self.new_width * self.new_height)
         # Mark occupied cells based on downsampling
         for y in range(0, original_height, self.downsample_factor):
             for x in range(0, original_width, self.downsample_factor):
-                # Calculate the index for the downsampled map
                 new_x = x // self.downsample_factor
                 new_y = y // self.downsample_factor
-                new_idx = new_y * new_width + new_x
-                # Check if any cell in the block is occupied
+                new_idx = new_y * self.new_width + new_x
                 cell_value = self.get_block_occupancy(original_data, x, y, original_width, self.downsample_factor)
-                new_data[new_idx] = cell_value
+                self.low_res_grid[new_idx] = cell_value
         # Get robot's current position
-        robot_lowres_x = None
-        robot_lowres_y = None
+        self.robot_lowres_x, self.robot_lowres_y = self.get_robot_lowres_position(original_origin, original_resolution)
+        # Ensure indices are within bounds
+        if 0 <= self.robot_lowres_x < self.new_width and 0 <= self.robot_lowres_y < self.new_height:
+            robot_idx = self.robot_lowres_y * self.new_width + self.robot_lowres_x
+            self.low_res_grid[robot_idx] = 127  # Mark as occupied
+            self.get_logger().info(f"Marked robot position at ({self.robot_lowres_x}, {self.robot_lowres_y}) as occupied.")
+        else:
+            self.get_logger().warn("Robot position is out of bounds in the downsampled map.")
+        if not self.detections is None and self.depth_image is None:
+            self.get_logger().warn("Got detections but no depth image")
+        if not self.depth_image is None and self.detections is None:
+            self.get_logger().warn("Got depth image but no detections")
+        if self.depth_image is None and self.detections is None:
+            self.get_logger().warn("Got no depth image and no detections")
+        # Process detections
+        if self.detections:
+            for out in self.detections:
+                for detection in out:
+                    scores = detection[5:]
+                    class_id = np.argmax(scores)
+                    confidence = scores[class_id]
+                    if confidence > 0.1:  # Confidence threshold
+                        # Compute detection center in pixel coordinates
+                        center_x = int(detection[0] * self.width)
+                        center_y = int(detection[1] * self.height)
+                        # Get depth value at the detection center
+                        depth_value = self.depth_image[center_y, center_x]
+                        M = {"wall": 100, "robot": 127, "chair": -126, "table": -126, "bottle": -125, "cup": -125, "can": -125, "person": -124}
+                        category = self.classes[class_id]
+                        if depth_value > 0 and category in M:  # Valid depth
+                            # Use the timestamp from the synchronized images
+                            stamp = self.last_image_stamp if self.last_image_stamp else self.get_clock().now()
+                            # Create a point in camera space with the correct timestamp
+                            self.get_logger().info(f"DEPTH DEBUG" + str(depth_value))
+                            camera_point = PointStamped(
+                                header=Header(stamp=stamp.to_msg(), frame_id='oakd_left_camera_frame'),
+                                point = Point(
+                                    x=depth_value,  # The depth value determines how far forward the point is
+                                    y=-(center_x - (self.width / 2)) * depth_value / self.fx,  # Horizontal offset scaled by depth
+                                    z=-(center_y - (self.height / 2)) * depth_value / self.fy   # Vertical offset scaled by depth
+                                )
+                            )
+                            # Transform the point to the robot's frame
+                            try:
+                                transformed_point = self.tf_buffer.transform(camera_point, 'map', timeout=Duration(seconds=1.0))
+                                # Map the transformed point to the grid coordinates
+                                object_grid_x, object_grid_y = self.get_lowres_position(
+                                    transformed_point.point.x, transformed_point.point.y,
+                                    original_origin, self.new_resolution  # Use new_resolution for low-res grid
+                                )
+                                # Mark the detection in the low-resolution grid
+                                if 0 <= object_grid_x < self.new_width and 0 <= object_grid_y < self.new_height:
+                                    obj_idx = object_grid_y * self.new_width + object_grid_x
+                                    self.low_res_grid[obj_idx] = M[category]  # Mark as detected object
+                                    self.get_logger().info(f"Marked detected object at ({object_grid_x}, {object_grid_y}) in grid.")
+                                else:
+                                    self.get_logger().warn("Detected object position is out of bounds in the downsampled map.")
+                            except tf2_ros.LookupException:
+                                self.get_logger().error("Transform not found.")
+                            except tf2_ros.ConnectivityException:
+                                self.get_logger().error("Connectivity exception while looking up transform.")
+                            except tf2_ros.ExtrapolationException:
+                                self.get_logger().error("Extrapolation exception while looking up transform.")
+        # Publish the low-resolution map
+        self.publish_low_res_map(msg)
+        elapsed_time = time.time() - start_time
+        self.get_logger().info(f"DONE map: {elapsed_time:.2f} seconds")
+
+    def depth_callback(self, msg):
+        self.get_logger().info("Depth image received")
+        with self.lock:
+            self.depth_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='32FC1')  # Depth image
+            self.last_depth_stamp = Time.from_msg(msg.header.stamp)
+
+    def image_callback(self, msg):
+        with self.lock:
+            if self.depth_image is None:
+                return  # No depth data available
+            if self.processing:
+                return
+            self.processing = True
+        self.last_image_stamp = Time.from_msg(msg.header.stamp)
+        start_time = time.time()
+        self.get_logger().info("Processing image for object detection")
+        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        self.height, self.width, _ = cv_image.shape
+        blob = cv2.dnn.blobFromImage(cv_image, 0.00392, (608, 608), (0, 0, 0), True, crop=False)
+        self.net.setInput(blob)
+        layer_names = self.net.getLayerNames()
+        output_layers = [layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()]
+        self.detections = self.net.forward(output_layers)
+        # Process detections (you can customize this part)
+        for out in self.detections:
+            for detection in out:
+                scores = detection[5:]
+                class_id = np.argmax(scores)
+                confidence = scores[class_id]
+                if confidence > 0.1:  # Adjust confidence threshold as needed
+                    print("DET", detection)
+                    # Bounding box coordinates
+                    center_x = int(detection[0] * self.width)
+                    center_y = int(detection[1] * self.height)
+                    w = int(detection[2] * self.width)
+                    h = int(detection[3] * self.height)
+                    # Draw bounding box (optional)
+                    cv2.rectangle(cv_image, (center_x - w // 2, center_y - h // 2), (center_x + w // 2, center_y + h // 2), (0, 255, 0), 2)
+                         # Prepare label with class name and confidence
+                    label = f"{self.classes[class_id]}: {confidence:.2f}"
+                    # Get the size of the label to position it
+                    (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                    # Put the label on the image
+                    cv2.putText(cv_image, label, (center_x - w // 2, center_y - h // 2 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        # Convert the processed image back to ROS format and publish
+        output_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
+        self.image_pub.publish(output_msg)
+        elapsed_time = time.time() - start_time
+        self.get_logger().info(f"DONE detect: {elapsed_time:.2f} seconds")
+        self.processing = False
+
+    def get_robot_lowres_position(self, original_origin, original_resolution):
         try:
             # Wait for the transform for up to 1 second
             trans = self.tf_buffer.lookup_transform(
@@ -105,36 +263,25 @@ class LowResGridMapPublisher(Node):
             # Adjust for downsampling
             robot_lowres_x = robot_map_x // self.downsample_factor
             robot_lowres_y = robot_map_y // self.downsample_factor
-            self.robot_lowres_x = robot_lowres_x
-            self.robot_lowres_y = robot_lowres_y
-            # Ensure indices are within bounds
-            if 0 <= robot_lowres_x < new_width and 0 <= robot_lowres_y < new_height:
-                robot_idx = robot_lowres_y * new_width + robot_lowres_x
-                new_data[robot_idx] = 127  # Mark as occupied
-                self.get_logger().info(f"Marked robot position at ({robot_lowres_x}, {robot_lowres_y}) as occupied.")
-            else:
-                self.get_logger().warn("Robot position is out of bounds in the downsampled map.")
-        except tf2_ros.LookupException:
-            self.get_logger().error("Transform from map to base_link not found.")
-        except tf2_ros.ConnectivityException:
-            self.get_logger().error("Connectivity exception while looking up transform.")
-        except tf2_ros.ExtrapolationException:
-            self.get_logger().error("Extrapolation exception while looking up transform.")
-        # Publish the low-resolution map
+            return robot_lowres_x, robot_lowres_y
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            self.get_logger().error(f"Transform exception: {str(e)}")
+            return 0, 0  # Default position
+
+    def publish_low_res_map(self, msg):
         lowres_msg = OccupancyGrid()
         lowres_msg.header = msg.header
         lowres_msg.header.frame_id = 'map'
         lowres_msg.header.stamp = self.get_clock().now().to_msg()
-        lowres_msg.info.resolution = new_resolution
-        self.resolution = new_resolution
-        lowres_msg.info.width = new_width
-        lowres_msg.info.height = new_height
+        lowres_msg.info.resolution = self.new_resolution
+        lowres_msg.info.width = self.new_width
+        lowres_msg.info.height = self.new_height
         lowres_msg.info.origin = msg.info.origin
+        lowres_msg.data = self.low_res_grid
         self.origin = msg.info.origin
-        lowres_msg.data = new_data
-        if robot_lowres_x is not None:
+        if self.robot_lowres_x is not None:
             with open("/home/nartech/nartech_ws/src/nartech_ros/channels/grid.txt","w") as f:
-                f.write(str(new_width) + "\n" + str(new_height) + "\n" + str(robot_lowres_x) + '\n' + str(robot_lowres_y) + "\n" + str(new_data))
+                f.write(str(self.new_width) + "\n" + str(self.new_height) + "\n" + str(self.robot_lowres_x) + '\n' + str(self.robot_lowres_y) + "\n" + str(self.low_res_grid))
         self.lowres_grid_pub.publish(lowres_msg)
 
     def get_block_occupancy(self, data, x_start, y_start, width, factor):
@@ -160,19 +307,18 @@ class LowResGridMapPublisher(Node):
     def send_navigation_goal(self, target_cell):
         cell_x, cell_y = target_cell
         # Convert low-res cell to world coordinates based on resolution and origin
-        resolution = self.resolution
         origin_x, origin_y = self.origin.position.x, self.origin.position.y    # Example origin x, update with actual
         #origin_y = 0.0    # Example origin y, update with actual
         idx = cell_y * self.new_width + cell_x
-        if self.new_data[idx] != 0:
+        if self.low_res_grid[idx] != 0:
             self.get_logger().info(f"COLLISION!!!")
             self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
             return
         goal_pose = PoseStamped()
         goal_pose.header.frame_id = 'map'  # Ensure the frame matches your map
         goal_pose.header.stamp = self.get_clock().now().to_msg()
-        goal_pose.pose.position.x = origin_x + (cell_x * resolution) + resolution/2
-        goal_pose.pose.position.y = origin_y + (cell_y * resolution) + resolution/2
+        goal_pose.pose.position.x = origin_x + (cell_x * self.new_resolution) + self.new_resolution/2
+        goal_pose.pose.position.y = origin_y + (cell_y * self.new_resolution) + self.new_resolution/2
         goal_pose.pose.orientation.w = 1.0  # Adjust as needed
         self.get_logger().info(f"Sending goal to ({goal_pose.pose.position.x}, {goal_pose.pose.position.y})")
         # Check if the action client is available
@@ -234,7 +380,6 @@ class LowResGridMapPublisher(Node):
         elif direction == "down":
             return (current_x, current_y - 1)
         return None
-
 
 def main(args=None):
     rclpy.init(args=args)

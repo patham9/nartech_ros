@@ -1,5 +1,7 @@
 if [ "$2" != "nogrid" ] && [ "$1" != "nogrid" ]; then
-    python3 /home/nartech/nartech_ws/src/nartech_ros/channels/grid.py &
+    cd /home/nartech/nartech_ws/src/nartech_ros/channels/
+    python3 grid.py &
+    cd /home/nartech/
 fi
 if [ "$1" == "fast" ] || [ "$2" == "fast" ]; then
     export MY_WORLD=/opt/ros/jazzy/share/nav2_minimal_tb4_sim/worlds/warehouse.sdf
