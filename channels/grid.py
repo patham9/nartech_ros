@@ -2,6 +2,7 @@
 import rclpy
 import time
 import numpy as np
+import math
 import cv2
 import threading
 from rclpy.node import Node
@@ -21,6 +22,7 @@ from action_msgs.msg import GoalStatus
 from std_msgs.msg import Header
 from rclpy.duration import Duration
 from rclpy.time import Time
+from geometry_msgs.msg import Quaternion
 
 class LowResGridMapPublisher(Node):
     def __init__(self):
@@ -302,9 +304,26 @@ class LowResGridMapPublisher(Node):
         # Determine the target low-res position based on the command
         target_cell = self.get_current_target_cell(command)
         if target_cell:
-            self.send_navigation_goal(target_cell)
+            self.send_navigation_goal(target_cell, command)
 
-    def send_navigation_goal(self, target_cell):
+    def set_orientation_with_angle(self, angle_radians):
+        half_angle = angle_radians / 2.0
+        return Quaternion(x=0.0, y=0.0, z=math.sin(half_angle), w=math.cos(half_angle))
+
+    def set_orientation(self, command):
+        if command == "right":
+            angle = 0  # Facing up (0 radians)
+        elif command == "left":
+            angle = math.pi  # Facing down (π radians)
+        elif command == "up":
+            angle = math.pi / 2  # Facing left (π/2 radians)
+        elif command == "down":
+            angle = -math.pi / 2  # Facing right (-π/2 radians)
+        else:
+            raise ValueError("Invalid command. Must be 'up', 'down', 'left', or 'right'.")
+        return self.set_orientation_with_angle(angle)
+
+    def send_navigation_goal(self, target_cell, command):
         cell_x, cell_y = target_cell
         # Convert low-res cell to world coordinates based on resolution and origin
         origin_x, origin_y = self.origin.position.x, self.origin.position.y    # Example origin x, update with actual
@@ -319,7 +338,7 @@ class LowResGridMapPublisher(Node):
         goal_pose.header.stamp = self.get_clock().now().to_msg()
         goal_pose.pose.position.x = origin_x + (cell_x * self.new_resolution) + self.new_resolution/2
         goal_pose.pose.position.y = origin_y + (cell_y * self.new_resolution) + self.new_resolution/2
-        goal_pose.pose.orientation.w = 1.0  # Adjust as needed
+        goal_pose.pose.orientation = self.set_orientation(command)  # Adjust as needed
         self.get_logger().info(f"Sending goal to ({goal_pose.pose.position.x}, {goal_pose.pose.position.y})")
         # Check if the action client is available
         if not self.action_client.wait_for_server(timeout_sec=1.0):
