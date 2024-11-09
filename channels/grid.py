@@ -27,6 +27,9 @@ from geometry_msgs.msg import Quaternion
 class LowResGridMapPublisher(Node):
     def __init__(self):
         super().__init__('lowres_gridmap_publisher')
+        self.M = {"wall": 100, "robot": 127, "chair": -126, "table": -126, "bottle": -125, "cup": -125, "can": -125, "person": -124}
+        self.previous_detections_persistence = 60.0 #how long to persist it in seconds
+        self.previous_detections = dict([]) #where objects of type has been seen last time
         # Define QoS to keep only the latest image for string commands:
         qos_profile_str = QoSProfile(depth=1)
         qos_profile_str.history = QoSHistoryPolicy.KEEP_LAST
@@ -153,9 +156,8 @@ class LowResGridMapPublisher(Node):
                         center_y = int(detection[1] * self.height)
                         # Get depth value at the detection center
                         depth_value = self.depth_image[center_y, center_x]
-                        M = {"wall": 100, "robot": 127, "chair": -126, "table": -126, "bottle": -125, "cup": -125, "can": -125, "person": -124}
                         category = self.classes[class_id]
-                        if depth_value > 0 and category in M:  # Valid depth
+                        if depth_value > 0 and category in self.M:  # Valid depth
                             # Use the timestamp from the synchronized images
                             stamp = self.last_image_stamp if self.last_image_stamp else self.get_clock().now()
                             # Create a point in camera space with the correct timestamp
@@ -179,7 +181,8 @@ class LowResGridMapPublisher(Node):
                                 # Mark the detection in the low-resolution grid
                                 if 0 <= object_grid_x < self.new_width and 0 <= object_grid_y < self.new_height:
                                     obj_idx = object_grid_y * self.new_width + object_grid_x
-                                    self.low_res_grid[obj_idx] = M[category]  # Mark as detected object
+                                    self.previous_detections[category] = (obj_idx, time.time()) #persist last seen as object
+                                    self.low_res_grid[obj_idx] = self.M[category]  # Mark as detected object
                                     self.get_logger().info(f"Marked detected object at ({object_grid_x}, {object_grid_y}) in grid.")
                                 else:
                                     self.get_logger().warn("Detected object position is out of bounds in the downsampled map.")
@@ -189,6 +192,10 @@ class LowResGridMapPublisher(Node):
                                 self.get_logger().error("Connectivity exception while looking up transform.")
                             except tf2_ros.ExtrapolationException:
                                 self.get_logger().error("Extrapolation exception while looking up transform.")
+        for category in self.previous_detections:
+            (obj_idx, t) = self.previous_detections[category]
+            if time.time() - t < self.previous_detections_persistence:
+                self.low_res_grid[obj_idx] = self.M[category]
         # Publish the low-resolution map
         self.publish_low_res_map(msg)
         elapsed_time = time.time() - start_time
