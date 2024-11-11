@@ -66,6 +66,7 @@ class LowResGridMapPublisher(Node):
         self.mapupdate = 0
         self.goalstart = 0
         self.new_width = 0
+        self.cached_msg = None
         #YOLO:
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         # Initialize CV bridge and other parameters
@@ -92,6 +93,8 @@ class LowResGridMapPublisher(Node):
         # Load class names (assuming you have a 'coco.names' file)
         with open('coco.names', 'r') as f:
             self.classes = [line.strip() for line in f.readlines()]
+        # Create a periodic timer that calls the processing function every 1 second
+        self.timer = self.create_timer(2.0, self.build_grid_periodic)
 
     # Helper function to compute low-res grid coordinates
     def get_lowres_position(self, world_x, world_y, original_origin, original_resolution):
@@ -101,6 +104,14 @@ class LowResGridMapPublisher(Node):
         return grid_x, grid_y
 
     def occ_grid_callback(self, msg):
+        self.get_logger().info("NEW OCC GRID")
+        self.cached_msg = msg
+
+    def build_grid_periodic(self):
+        if self.cached_msg is None:
+            self.get_logger().info("WAITING FOR OCC GRID")
+            return
+        msg = self.cached_msg
         start_time = time.time()
         self.get_logger().info("NEW PROCESSING: OCC GRID")
         # Get original grid map data
@@ -377,6 +388,7 @@ class LowResGridMapPublisher(Node):
         self.publish_done(force_mapupdate = True) #in this the goal was reached or it was at least attempted
 
     def publish_done(self, force_mapupdate):
+        force_mapupdate = False #not needed with fast map updating speed (leave functionality for now for testing)
         # Publish the 'done' message
         if force_mapupdate:
             waittime = 0.1
