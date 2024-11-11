@@ -24,7 +24,7 @@ class NaceopCommandPublisher(Node):
         msg = String()
         msg.data = sys.argv[1]
         self.naceop_pub.publish(msg)
-        self.get_logger().info("Published 'left' to /naceop")
+        self.get_logger().info(f"Published '{sys.argv[1]}' to /naceop")
 
     def nacedone_callback(self, msg):
         command = msg.data.lower()
