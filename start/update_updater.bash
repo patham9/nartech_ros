@@ -1,7 +1,12 @@
-#Called at startup to keep nartech up-to-date!
-#1. we pull to ensure nartech_ws to ensure we have the newest update script
-cd ~/nartech_ws/src/nartech_ros/
-git pull
-#2. we execute the update script
-cd ~/nartech_ws/src/nartech_ros/start/
-./update_nartech.bash
+# Called at startup to pull updater script
+# and invoke it to update the workspace 
+# i.e. pull src and build ROS workspace
+zenity --question --text="Do you wish to update NARTECH workspace?"
+if [ $? == "0" ]; then 
+    cd /home/nartech/nartech_ws/src/nartech_ros/start
+    rm update_nartech.bash
+    wget https://raw.githubusercontent.com/patham9/nartech_ros/refs/heads/master/start/update_nartech.bash
+    chmod 775 update_nartech.bash
+    ./update_nartech.bash
+fi
+
