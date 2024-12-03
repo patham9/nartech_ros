@@ -2,7 +2,9 @@
 
 cd ~/nartech_ws/src/nartech_ros/
 # Check if the local branch is behind the remote branch
-if [ "$(git rev-parse HEAD)" != "$(git rev-parse @{u})" ]; then
+git fetch &> /dev/null
+diffs=$(git diff master origin/master)
+if [ -n "$diffs" ]; then
     # User selected Yes, proceed with updates
     git pull
     cd ~/nartech_ws
