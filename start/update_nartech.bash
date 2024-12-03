@@ -2,7 +2,7 @@
 
 cd ~/nartech_ws/src/nartech_ros/
 # Check if the local branch is behind the remote branch
-git fetch &> /dev/null
+#git fetch &> /dev/null
 diffs=$(git diff master origin/master)
 if [ -n "$diffs" ]; then
     # User selected Yes, proceed with updates
