@@ -29,5 +29,5 @@ if [ $? -eq 0 ]; then
 fi
 
 # Common actions regardless of the choice
-xmessage -center "NARTECH ready! Press 'okay', then 'Build', then 'Start NARTECH demo'!"
+xmessage -center "NARTECH ready! Press 'okay', then 'Terminal', then enter './start_nartech.bash'!"
 geany /home/nartech/NACE/input.metta &
