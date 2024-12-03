@@ -2,7 +2,7 @@
 
 cd ~/nartech_ws/src/nartech_ros/
 # Check if the local branch is behind the remote branch
-if git pull | grep -q "Already up to date."; then
+if git pull 2>&1 | grep -q "Already up to date."; then
     # User selected Yes, proceed with updates
     git pull
     cd ~/nartech_ws
