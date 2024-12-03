@@ -1,32 +1,33 @@
 #!/bin/bash
 
+# User selected Yes, proceed with updates
 cd ~/nartech_ws/src/nartech_ros/
+git pull
+cd ~/AniNAL
+git pull
+cd ~/OpenNARS-for-Applications
+git pull
+cd ~/NACE
+git pull
+cd ~/metta-morph
+git pull
+cd ~/metta-morph/metta-nars
+git pull
+cd ~/metta-nars
+git pull
+cd ~/NARS-GPT
+git pull
+
+xmessage -center "Do you want to build NARTECH?" -buttons "Yes:0,No:1"
 # Check if the local branch is behind the remote branch
-if ! (git pull | grep -q "Already up to date."); then
+if [ $? -eq 0 ]; then
     # User selected Yes, proceed with updates
-    git pull
     cd ~/nartech_ws
     colcon build
     cd ~/AniNAL
-    git pull
     sh ./build.sh
-    cd ~/OpenNARS-for-Applications
-    git pull
-    #./build.sh # Uncomment if it should build every startup
-    cd ~/NACE
-    git pull
-    cd ~/metta-morph
-    git pull
-    cd ~/metta-morph/metta-nars
-    git pull
-    # metta-nars auto-compiles at first run when code changes
-    cd ~/metta-nars
-    git pull
-    cd ~/NARS-GPT
-    git pull
-    #./build.sh # Uncomment if it should build every startup
 fi
 
 # Common actions regardless of the choice
-xmessage -center "NARtech ready! Press 'okay', then 'Build', then 'Start NARTECH demo'!"
+xmessage -center "NARTECH ready! Press 'okay', then 'Build', then 'Start NARTECH demo'!"
 geany /home/nartech/NACE/input.metta &
