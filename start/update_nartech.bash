@@ -1,12 +1,10 @@
 #!/bin/bash
 
-# Prompt user with xmessage
-xmessage -center "Do you want to update NARtech? Press 'Yes' to proceed or 'No' to skip updates." -buttons "Yes:0,No:1"
-
-# Check the user's response
-if [ $? -eq 0 ]; then
+cd ~/nartech_ws/src/nartech_ros/
+git fetch
+# Check if the local branch is behind the remote branch
+if [ "$(git rev-parse HEAD)" != "$(git rev-parse @{u})" ]; then
     # User selected Yes, proceed with updates
-    cd ~/nartech_ws/src/nartech_ros/
     git pull
     cd ~/nartech_ws
     colcon build
