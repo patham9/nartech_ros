@@ -31,7 +31,7 @@ class NaceopCommandPublisher(Node):
         if command != "notdone":
             current_time = time.time()
             message_time = float(command)
-            if current_time - message_time > 1:
+            if current_time - message_time > 1.0:
                 self.get_logger().warn("Received an old message; ignoring it.")
                 return
             self.get_logger().info(f"Move done")

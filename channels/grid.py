@@ -28,7 +28,7 @@ class LowResGridMapPublisher(Node):
     def __init__(self):
         super().__init__('lowres_gridmap_publisher')
         self.M = {"wall": 100, "robot": 127, "chair": -126, "table": -126, "bottle": -125, "cup": -125, "can": -125, "person": -124}
-        self.previous_detections_persistence = 60.0 #how long to persist it in seconds
+        self.previous_detections_persistence = 100.0 #how long to persist it in seconds
         self.previous_detections = dict([]) #where objects of type has been seen last time
         # Define QoS to keep only the latest image for string commands:
         qos_profile_str = QoSProfile(depth=1)
@@ -44,7 +44,7 @@ class LowResGridMapPublisher(Node):
         qos_profile_yolo.history = QoSHistoryPolicy.KEEP_LAST
         qos_profile_yolo.durability = QoSDurabilityPolicy.VOLATILE
         # Parameters for resolution reduction
-        self.downsample_factor = 20  # Change as needed
+        self.downsample_factor = 28  # Change as needed
         # TF2 buffer and listener
         self.tf_buffer = Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
@@ -106,6 +106,7 @@ class LowResGridMapPublisher(Node):
     def occ_grid_callback(self, msg):
         self.get_logger().info("NEW OCC GRID")
         self.cached_msg = msg
+        self.build_grid_periodic()
 
     def build_grid_periodic(self):
         if self.cached_msg is None:
@@ -161,7 +162,7 @@ class LowResGridMapPublisher(Node):
                     scores = detection[5:]
                     class_id = np.argmax(scores)
                     confidence = scores[class_id]
-                    if confidence > 0.1:  # Confidence threshold
+                    if confidence > 0.5:  # Confidence threshold
                         # Compute detection center in pixel coordinates
                         center_x = int(detection[0] * self.width)
                         center_y = int(detection[1] * self.height)
@@ -329,6 +330,7 @@ class LowResGridMapPublisher(Node):
         return Quaternion(x=0.0, y=0.0, z=math.sin(half_angle), w=math.cos(half_angle))
 
     def set_orientation(self, command):
+        command = command.split(",")[-1] #for orientation it is the last move that matters
         if command == "right":
             angle = 0  # Facing up (0 radians)
         elif command == "left":
@@ -347,7 +349,7 @@ class LowResGridMapPublisher(Node):
         origin_x, origin_y = self.origin.position.x, self.origin.position.y    # Example origin x, update with actual
         #origin_y = 0.0    # Example origin y, update with actual
         idx = cell_y * self.new_width + cell_x
-        if self.low_res_grid[idx] != 0:
+        if idx >= len(self.low_res_grid) or self.low_res_grid[idx] != 0:
             self.get_logger().info(f"COLLISION!!!")
             self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
             return
@@ -406,18 +408,19 @@ class LowResGridMapPublisher(Node):
         self.nacedone_pub.publish(msg)
         self.get_logger().info("Published 'done' to /nacedone")
 
-    def get_current_target_cell(self, direction):
+    def get_current_target_cell(self, dirs):
         # Logic to get the robot's target position in the low-res grid
-        current_x, current_y = self.robot_lowres_x, self.robot_lowres_y  # Replace with actual position logic.
-        if direction == "left":
-            return (current_x - 1, current_y)
-        elif direction == "right":
-            return (current_x + 1, current_y)
-        elif direction == "up":
-            return (current_x, current_y + 1)
-        elif direction == "down":
-            return (current_x, current_y - 1)
-        return None
+        current_x, current_y = self.robot_lowres_x, self.robot_lowres_y  # Replace with actual position logic
+        for direction in dirs.split(","):
+            if direction == "left":
+                current_x, current_y = (current_x - 1, current_y)
+            elif direction == "right":
+                current_x, current_y = (current_x + 1, current_y)
+            elif direction == "up":
+                current_x, current_y = (current_x, current_y + 1)
+            elif direction == "down":
+                current_x, current_y = (current_x, current_y - 1)
+        return (current_x, current_y)
 
 def main(args=None):
     rclpy.init(args=args)
