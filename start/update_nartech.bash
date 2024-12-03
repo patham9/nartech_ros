@@ -28,5 +28,5 @@ if git pull | grep -q "Already up to date."; then
 fi
 
 # Common actions regardless of the choice
-xmessage -center "NARtech ready! Press OK then execute ./start_nartech.bash in Terminal of the opening window!"
+xmessage -center "NARtech ready! Press 'okay', then 'Build', then 'Start NARTECH demo'!"
 geany /home/nartech/NACE/input.metta &
