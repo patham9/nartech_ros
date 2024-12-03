@@ -1,7 +1,6 @@
 #!/bin/bash
 
 cd ~/nartech_ws/src/nartech_ros/
-git fetch
 # Check if the local branch is behind the remote branch
 if [ "$(git rev-parse HEAD)" != "$(git rev-parse @{u})" ]; then
     # User selected Yes, proceed with updates
