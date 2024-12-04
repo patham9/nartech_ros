@@ -4,7 +4,7 @@
 # NACE, ONA, MeTTa-NARS, MeTTa-Morph, NARS-GPT
 # as well as builds packages for ROS workspace
 
-# User selected Yes, proceed with updates
+mv /home/nartech/Desktop/logo*.png /home/nartech/Documents/
 cd ~/nartech_ws/src/nartech_ros/
 git pull
 cd ~/AniNAL
@@ -35,3 +35,4 @@ fi
 zenity --info --text "  NARTECH ready! Press 'OK', then 'Terminal', then enter './start_nartech.bash'!  " --title="Update Status" --icon="/home/nartech/Documents/logo.png"
 
 geany /home/nartech/NACE/input.metta &
+
