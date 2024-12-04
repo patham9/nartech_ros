@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# This updater script pull the src code for
+# NACE, ONA, MeTTa-NARS, MeTTa-Morph, NARS-GPT
+# as well as builds packages for ROS workspace
+
 # User selected Yes, proceed with updates
 cd ~/nartech_ws/src/nartech_ros/
 git pull
