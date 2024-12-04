@@ -68,7 +68,6 @@ class LowResGridMapPublisher(Node):
         self.new_width = 0
         self.cached_msg = None
         #YOLO:
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         # Initialize CV bridge and other parameters
         self.bridge = CvBridge()
         self.processing = False

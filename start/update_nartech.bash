@@ -18,9 +18,8 @@ git pull
 cd ~/NARS-GPT
 git pull
 
-xmessage -center "Do you want to build NARTECH?" -buttons "Yes:0,No:1"
 # Check if the local branch is behind the remote branch
-if [ $? -eq 0 ]; then
+if zenity --question --text="Do you want to build NARTECH?" --title="Build NARTECH" --icon="/home/nartech/Documents/logo.png"; then
     # User selected Yes, proceed with updates
     cd ~/nartech_ws
     colcon build
@@ -29,5 +28,6 @@ if [ $? -eq 0 ]; then
 fi
 
 # Common actions regardless of the choice
-xmessage -center "NARTECH ready! Press 'okay', then 'Terminal', then enter './start_nartech.bash'!"
+zenity --info --text "  NARTECH ready! Press 'OK', then 'Terminal', then enter './start_nartech.bash'!  " --title="Update Status" --icon="/home/nartech/Documents/logo.png"
+
 geany /home/nartech/NACE/input.metta &
