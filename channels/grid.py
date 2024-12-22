@@ -58,6 +58,8 @@ class LowResGridMapPublisher(Node):
         self.nacedone_pub = self.create_publisher(String, '/nacedone', qos_profile_str)
         # Initialize Action Client
         self.action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+        self.navigation_goal = None
+        self.navigation_retries = 0
         # value that are set later after messages are received
         self.origin = None
         self.robot_lowres_x = None
@@ -319,9 +321,14 @@ class LowResGridMapPublisher(Node):
         self.get_logger().info(f"Received command: {command}")
         if self.robot_lowres_x is None:
             return
-        # Determine the target low-res position based on the command
+        self.start_navigation(command)
+
+    # Determine the target low-res position based on the command, and send it as navigation goal
+    def start_navigation(self, command):
         target_cell = self.get_current_target_cell(command)
         if target_cell:
+            self.navigation_goal = (target_cell, command)
+            self.navigation_retries = 0
             self.send_navigation_goal(target_cell, command)
 
     def set_orientation_with_angle(self, angle_radians):
@@ -385,7 +392,19 @@ class LowResGridMapPublisher(Node):
         if result.status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info("Goal succeeded!")
         else:
-            self.get_logger().info("Goal failed with status: {0}".format(result.status))
+            if self.navigation_retries < 10:
+                self.send_navigation_goal(self.navigation_goal[0], self.navigation_goal[1])
+                self.get_logger().info("Goal failed with status: {0}, retrying".format(result.status))
+                self.navigation_retries += 1
+                return
+            else:
+                if "," in self.navigation_goal[1]:
+                    self.get_logger().info("Goal failed with status: {0}, exhausted retries, shortening command".format(result.status))
+                    newcommand = ",".join(self.navigation_goal[1].split(",")[1:])
+                    self.start_navigation(newcommand)
+                    return
+                else:
+                    self.get_logger().info("Goal failed with status: {0}, exhausted retries and shortenings".format(result.status))
         self.publish_done(force_mapupdate = True) #in this the goal was reached or it was at least attempted
 
     def publish_done(self, force_mapupdate):
