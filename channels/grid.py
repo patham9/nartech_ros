@@ -60,6 +60,7 @@ class LowResGridMapPublisher(Node):
         self.action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.navigation_goal = None
         self.navigation_retries = 0
+        self.goal_handle = None
         # value that are set later after messages are received
         self.origin = None
         self.robot_lowres_x = None
@@ -110,6 +111,12 @@ class LowResGridMapPublisher(Node):
         self.build_grid_periodic()
 
     def build_grid_periodic(self):
+        if self.navigation_goal is not None:
+            target_cell, _ = self.navigation_goal
+            if self.check_collision(target_cell):
+                if self.goal_handle is not None:
+                    self.goal_handle.cancel_goal_async()
+                    self.get_logger().info('Cancellation of goal due collision.')
         if self.cached_msg is None:
             self.get_logger().info("WAITING FOR OCC GRID")
             return
@@ -349,16 +356,21 @@ class LowResGridMapPublisher(Node):
             raise ValueError("Invalid command. Must be 'up', 'down', 'left', or 'right'.")
         return self.set_orientation_with_angle(angle)
 
-    def send_navigation_goal(self, target_cell, command):
+    def check_collision(self, target_cell):
         cell_x, cell_y = target_cell
-        # Convert low-res cell to world coordinates based on resolution and origin
-        origin_x, origin_y = self.origin.position.x, self.origin.position.y    # Example origin x, update with actual
-        #origin_y = 0.0    # Example origin y, update with actual
         idx = cell_y * self.new_width + cell_x
         if idx >= len(self.low_res_grid) or self.low_res_grid[idx] != 0:
             self.get_logger().info(f"COLLISION!!!")
+            return True
+        return False
+
+    def send_navigation_goal(self, target_cell, command):
+        # Convert low-res cell to world coordinates based on resolution and origin
+        origin_x, origin_y = self.origin.position.x, self.origin.position.y    # Example origin x, update with actual
+        if self.check_collision(target_cell):
             self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
             return
+        cell_x, cell_y = target_cell
         goal_pose = PoseStamped()
         goal_pose.header.frame_id = 'map'  # Ensure the frame matches your map
         goal_pose.header.stamp = self.get_clock().now().to_msg()
@@ -378,13 +390,14 @@ class LowResGridMapPublisher(Node):
         sent_goal.add_done_callback(self._goal_response_callback)
 
     def _goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
+        self.goal_handle = future.result()
+        if not self.goal_handle.accepted:
+            self.goal_handle = None
             self.get_logger().info("Goal rejected")
             self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
             return
         self.get_logger().info("Goal accepted, waiting for result")
-        result_future = goal_handle.get_result_async()
+        result_future = self.goal_handle.get_result_async()
         result_future.add_done_callback(self._result_callback)
 
     def _result_callback(self, future):
