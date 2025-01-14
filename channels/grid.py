@@ -201,7 +201,7 @@ class LowResGridMapPublisher(Node):
                                 # Mark the detection in the low-resolution grid
                                 if 0 <= object_grid_x < self.new_width and 0 <= object_grid_y < self.new_height:
                                     obj_idx = object_grid_y * self.new_width + object_grid_x
-                                    self.previous_detections[category] = (obj_idx, time.time()) #persist last seen as object
+                                    self.previous_detections[category] = (time.time(), object_grid_x, object_grid_y) #persist last seen as object
                                     self.low_res_grid[obj_idx] = self.M[category]  # Mark as detected object
                                     self.get_logger().info(f"Marked detected object at ({object_grid_x}, {object_grid_y}) in grid.")
                                 else:
@@ -213,7 +213,8 @@ class LowResGridMapPublisher(Node):
                             except tf2_ros.ExtrapolationException:
                                 self.get_logger().error("Extrapolation exception while looking up transform.")
         for category in self.previous_detections:
-            (obj_idx, t) = self.previous_detections[category]
+            (t, object_grid_x, object_grid_y) = self.previous_detections[category] #better for rescaling
+            obj_idx = object_grid_y * self.new_width + object_grid_x
             if time.time() - t < self.previous_detections_persistence:
                 self.low_res_grid[obj_idx] = self.M[category]
         # Publish the low-resolution map
