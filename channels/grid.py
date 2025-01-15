@@ -360,7 +360,7 @@ class LowResGridMapPublisher(Node):
     def check_collision(self, target_cell):
         cell_x, cell_y = target_cell
         idx = cell_y * self.new_width + cell_x
-        if idx >= len(self.low_res_grid) or self.low_res_grid[idx] != 0:
+        if idx < len(self.low_res_grid) and self.low_res_grid[idx] != 0:
             self.get_logger().info(f"COLLISION!!!")
             return True
         return False
@@ -369,7 +369,13 @@ class LowResGridMapPublisher(Node):
         # Convert low-res cell to world coordinates based on resolution and origin
         origin_x, origin_y = self.origin.position.x, self.origin.position.y    # Example origin x, update with actual
         if self.check_collision(target_cell):
-            self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
+            if "," in self.navigation_goal[1]:
+                self.get_logger().info("COLLISION, shortening command")
+                newcommand = ",".join(self.navigation_goal[1].split(",")[1:])
+                self.start_navigation(newcommand)
+            else:
+                self.get_logger().info("COLLISION, aborting")
+                self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
             return
         cell_x, cell_y = target_cell
         goal_pose = PoseStamped()
