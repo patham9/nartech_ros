@@ -1,6 +1,72 @@
+from hyperon.ext import register_atoms
+from hyperon import *
+import time
+
+NAV_STATE_FAIL = "FAIL"
+NAV_STATE_BUSY = "BUSY"
+NAV_STATE_SUCCESS = "SUCCESS"
+NAV_STATE = NAV_STATE_SUCCESS #"busy", "success" and "fail" (initially set to success)
+def NAV_STATE_SET(NAV_STATE_ARG):
+    global NAV_STATE
+    NAV_STATE = NAV_STATE_ARG
+    return None
+
+class PatternOperation(OperationObject):
+    def __init__(self, name, op, unwrap=False, rec=False):
+        super().__init__(name, op, unwrap)
+        self.rec = rec
+    def execute(self, *args, res_typ=AtomType.UNDEFINED):
+        return super().execute(*args, res_typ=res_typ)
+
+def wrapnpop(func):
+    def wrapper(*args):
+        a = [str("'"+arg) if arg is SymbolAtom else str(arg) for arg in args]
+        res = func(*a)
+        return [res]
+    return wrapper
+
+MeTTaROS2Command = ""
+def call_bridgeinput(*a):
+    global runner, MeTTaROS2Command
+    tokenizer = runner.tokenizer()
+    cmd = str(a[0])
+    parser = SExprParser(f"(MeTTaROS2Command {cmd})")
+    MeTTaROS2Command = cmd
+    return parser.parse(tokenizer)
+
+def space_init():
+    global runner
+    with open("space.metta", "r") as f:
+        metta_code = f.read()
+    runner = MeTTa()
+    call_bridgeinput_atom = G(PatternOperation('bridgeinput', wrapnpop(call_bridgeinput), unwrap=False))
+    runner.register_atom("bridgeinput", call_bridgeinput_atom)
+    runner.run(metta_code)
+
+currentTime = 0
+start_time = time.time()
+
+def space_tick(node):
+    global currentTime, MeTTaROS2Command
+    cmd = MeTTaROS2Command
+    MeTTaROS2Command = ""
+    if cmd == "right":
+        node.start_navigation("right")
+    if cmd == "left":
+        node.start_navigation("left")
+    if cmd == "up":
+        node.start_navigation("up")
+    if cmd == "down":
+        node.start_navigation("down")
+    #if cmd == "(goto "
+    currentTime += 1
+    elapsedTime = round(time.time() - start_time, 2)
+    print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE})"))
+
+space_init()
+
 #!/usr/bin/env python3
 import rclpy
-import time
 import numpy as np
 import math
 import cv2
@@ -111,6 +177,8 @@ class LowResGridMapPublisher(Node):
         self.build_grid_periodic()
 
     def build_grid_periodic(self):
+        if self.robot_lowres_x is not None and "metta" in sys.argv:
+            space_tick(self)
         if self.navigation_goal is not None:
             target_cell, _ = self.navigation_goal
             if self.check_collision(target_cell):
@@ -327,17 +395,7 @@ class LowResGridMapPublisher(Node):
         self.goalstart = self.mapupdate #current mapupdate
         command = msg.data.lower()
         self.get_logger().info(f"Received command: {command}")
-        if self.robot_lowres_x is None:
-            return
         self.start_navigation(command)
-
-    # Determine the target low-res position based on the command, and send it as navigation goal
-    def start_navigation(self, command):
-        target_cell = self.get_current_target_cell(command)
-        if target_cell:
-            self.navigation_goal = (target_cell, command)
-            self.navigation_retries = 0
-            self.send_navigation_goal(target_cell, command)
 
     def set_orientation_with_angle(self, angle_radians):
         half_angle = angle_radians / 2.0
@@ -359,11 +417,22 @@ class LowResGridMapPublisher(Node):
 
     def check_collision(self, target_cell):
         cell_x, cell_y = target_cell
-        idx = cell_y * self.new_width + cell_x
-        if idx < len(self.low_res_grid) and self.low_res_grid[idx] != 0:
+        idx = cell_y * self.new_width + cell_x #don't include self collision in the check
+        if idx < len(self.low_res_grid) and self.low_res_grid[idx] != 0 and self.low_res_grid[idx] != 127:
             self.get_logger().info(f"COLLISION!!!")
             return True
         return False
+
+    # Determine the target low-res position based on the command, and send it as navigation goal
+    def start_navigation(self, command):
+        NAV_STATE_SET(NAV_STATE_BUSY)
+        if self.robot_lowres_x is None:
+            return#-- NAV_STATE_SET(NAV_STATE_FAIL)
+        target_cell = self.get_current_target_cell(command)
+        if target_cell:
+            self.navigation_goal = (target_cell, command)
+            self.navigation_retries = 0
+            self.send_navigation_goal(target_cell, command)
 
     def send_navigation_goal(self, target_cell, command):
         # Convert low-res cell to world coordinates based on resolution and origin
@@ -373,10 +442,11 @@ class LowResGridMapPublisher(Node):
                 self.get_logger().info("COLLISION, shortening command")
                 newcommand = ",".join(self.navigation_goal[1].split(",")[1:])
                 self.start_navigation(newcommand)
+                return #nav state busy now again
             else:
                 self.get_logger().info("COLLISION, aborting")
                 self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
-            return
+                return NAV_STATE_SET(NAV_STATE_FAIL)
         cell_x, cell_y = target_cell
         goal_pose = PoseStamped()
         goal_pose.header.frame_id = 'map'  # Ensure the frame matches your map
@@ -389,7 +459,7 @@ class LowResGridMapPublisher(Node):
         if not self.action_client.wait_for_server(timeout_sec=1.0):
             self.get_logger().error("Action server not available!")
             self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
-            return
+            return# NAV_STATE_SET(NAV_STATE_FAIL)
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose = goal_pose
         # Send goal to the action server
@@ -402,20 +472,21 @@ class LowResGridMapPublisher(Node):
             self.goal_handle = None
             self.get_logger().info("Goal rejected")
             self.publish_done(force_mapupdate = False) #goal was not accepted so nothing happened anyway
-            return
+            return# NAV_STATE_SET(NAV_STATE_FAIL)
         self.get_logger().info("Goal accepted, waiting for result")
         result_future = self.goal_handle.get_result_async()
         result_future.add_done_callback(self._result_callback)
 
     def _result_callback(self, future):
         result = future.result()
+        NAV_STATE_TEMP = NAV_STATE_SUCCESS
         if result.status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info("Goal succeeded!")
         else:
             if self.navigation_retries < 10:
-                self.send_navigation_goal(self.navigation_goal[0], self.navigation_goal[1])
                 self.get_logger().info("Goal failed with status: {0}, retrying".format(result.status))
                 self.navigation_retries += 1
+                self.send_navigation_goal(self.navigation_goal[0], self.navigation_goal[1])
                 return
             else:
                 if "," in self.navigation_goal[1]:
@@ -425,10 +496,12 @@ class LowResGridMapPublisher(Node):
                     return
                 else:
                     self.get_logger().info("Goal failed with status: {0}, exhausted retries and shortenings".format(result.status))
+                    #NAV_STATE_TEMP = NAV_STATE_FAIL
         self.publish_done(force_mapupdate = True) #in this the goal was reached or it was at least attempted
+        return NAV_STATE_SET(NAV_STATE_TEMP)
 
     def publish_done(self, force_mapupdate):
-        force_mapupdate = False #not needed with fast map updating speed (leave functionality for now for testing)
+        force_mapupdate = True #not needed with fast map updating speed (leave functionality for now for testing)
         # Publish the 'done' message
         if force_mapupdate:
             waittime = 0.1
