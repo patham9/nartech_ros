@@ -51,14 +51,16 @@ def space_tick(node):
     cmd = MeTTaROS2Command
     MeTTaROS2Command = ""
     if cmd == "right":
-        node.start_navigation("right")
+        node.start_navigation_by_moves("right")
     if cmd == "left":
-        node.start_navigation("left")
+        node.start_navigation_by_moves("left")
     if cmd == "up":
-        node.start_navigation("up")
+        node.start_navigation_by_moves("up")
     if cmd == "down":
-        node.start_navigation("down")
-    #if cmd == "(goto "
+        node.start_navigation_by_moves("down")
+    if cmd == "(goto test)":
+        obj = cmd.split("(goto ")[1].split(")")[0]
+        node.start_navigation_to_object(obj)
     currentTime += 1
     elapsedTime = round(time.time() - start_time, 2)
     print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE})"))
@@ -94,7 +96,7 @@ class LowResGridMapPublisher(Node):
     def __init__(self):
         super().__init__('lowres_gridmap_publisher')
         self.M = {"wall": 100, "robot": 127, "chair": -126, "table": -126, "bottle": -125, "cup": -125, "can": -125, "person": -124}
-        self.previous_detections_persistence = 100.0 #how long to persist it in seconds
+        self.previous_detections_persistence = 100000.0 #how long to persist it in seconds
         self.previous_detections = dict([]) #where objects of type has been seen last time
         # Define QoS to keep only the latest image for string commands:
         qos_profile_str = QoSProfile(depth=1)
@@ -269,7 +271,7 @@ class LowResGridMapPublisher(Node):
                                 # Mark the detection in the low-resolution grid
                                 if 0 <= object_grid_x < self.new_width and 0 <= object_grid_y < self.new_height:
                                     obj_idx = object_grid_y * self.new_width + object_grid_x
-                                    self.previous_detections[category] = (time.time(), object_grid_x, object_grid_y) #persist last seen as object
+                                    self.previous_detections[category] = (time.time(), object_grid_x, object_grid_y, original_origin.position.x, original_origin.position.y) #persist last seen as object
                                     self.low_res_grid[obj_idx] = self.M[category]  # Mark as detected object
                                     self.get_logger().info(f"Marked detected object at ({object_grid_x}, {object_grid_y}) in grid.")
                                 else:
@@ -281,10 +283,23 @@ class LowResGridMapPublisher(Node):
                             except tf2_ros.ExtrapolationException:
                                 self.get_logger().error("Extrapolation exception while looking up transform.")
         for category in self.previous_detections:
-            (t, object_grid_x, object_grid_y) = self.previous_detections[category] #better for rescaling
-            obj_idx = object_grid_y * self.new_width + object_grid_x
-            if time.time() - t < self.previous_detections_persistence:
-                self.low_res_grid[obj_idx] = self.M[category]
+            (t, object_grid_x, object_grid_y, old_origin_x, old_origin_y) = self.previous_detections[category] #better for rescaling
+            # Get the current map origin from the incoming occupancy grid message
+            current_origin_x = msg.info.origin.position.x
+            current_origin_y = msg.info.origin.position.y
+            # Compute how many low-res cells the origin has shifted by.
+            # (Since self.new_resolution is constant, the offset in grid cells is:
+            #   (old_origin - current_origin) / new_resolution.)
+            offset_x = int(round((old_origin_x - current_origin_x) / self.new_resolution))
+            offset_y = int(round((old_origin_y - current_origin_y) / self.new_resolution))
+            # Adjust the stored grid coordinates by the computed offset
+            new_object_grid_x = object_grid_x + offset_x
+            new_object_grid_y = object_grid_y + offset_y
+            # Make sure the new coordinates are within bounds
+            if 0 <= new_object_grid_x < self.new_width and 0 <= new_object_grid_y < self.new_height:
+                obj_idx = new_object_grid_y * self.new_width + new_object_grid_x
+                if time.time() - t < self.previous_detections_persistence:
+                    self.low_res_grid[obj_idx] = self.M[category]
         # Publish the low-resolution map
         self.publish_low_res_map(msg)
         elapsed_time = time.time() - start_time
@@ -395,9 +410,11 @@ class LowResGridMapPublisher(Node):
         self.goalstart = self.mapupdate #current mapupdate
         command = msg.data.lower()
         self.get_logger().info(f"Received command: {command}")
-        self.start_navigation(command)
+        self.start_navigation_by_moves(command)
 
     def set_orientation_with_angle(self, angle_radians):
+        if angle_radians is None:
+            return Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)  # No specific rotation
         half_angle = angle_radians / 2.0
         return Quaternion(x=0.0, y=0.0, z=math.sin(half_angle), w=math.cos(half_angle))
 
@@ -412,7 +429,7 @@ class LowResGridMapPublisher(Node):
         elif command == "down":
             angle = -math.pi / 2  # Facing right (-π/2 radians)
         else:
-            raise ValueError("Invalid command. Must be 'up', 'down', 'left', or 'right'.")
+            return self.set_orientation_with_angle(None)
         return self.set_orientation_with_angle(angle)
 
     def check_collision(self, target_cell):
@@ -423,8 +440,19 @@ class LowResGridMapPublisher(Node):
             return True
         return False
 
+    def start_navigation_to_object(self, obj):
+        return
+        """NAV_STATE_SET(NAV_STATE_BUSY)
+        if self.robot_lowres_x is None:
+            return#-- NAV_STATE_SET(NAV_STATE_FAIL)
+        target_cell = self.get_current_target_cell(command)
+        if target_cell:
+            self.navigation_goal = (target_cell, "")
+            self.navigation_retries = 0
+            self.send_navigation_goal(target_cell, "")"""
+
     # Determine the target low-res position based on the command, and send it as navigation goal
-    def start_navigation(self, command):
+    def start_navigation_by_moves(self, command):
         NAV_STATE_SET(NAV_STATE_BUSY)
         if self.robot_lowres_x is None:
             return#-- NAV_STATE_SET(NAV_STATE_FAIL)
@@ -441,7 +469,7 @@ class LowResGridMapPublisher(Node):
             if "," in self.navigation_goal[1]:
                 self.get_logger().info("COLLISION, shortening command")
                 newcommand = ",".join(self.navigation_goal[1].split(",")[1:])
-                self.start_navigation(newcommand)
+                self.start_navigation_by_moves(newcommand)
                 return #nav state busy now again
             else:
                 self.get_logger().info("COLLISION, aborting")
@@ -492,7 +520,7 @@ class LowResGridMapPublisher(Node):
                 if "," in self.navigation_goal[1]:
                     self.get_logger().info("Goal failed with status: {0}, exhausted retries, shortening command".format(result.status))
                     newcommand = ",".join(self.navigation_goal[1].split(",")[1:])
-                    self.start_navigation(newcommand)
+                    self.start_navigation_by_moves(newcommand)
                     return
                 else:
                     self.get_logger().info("Goal failed with status: {0}, exhausted retries and shortenings".format(result.status))
