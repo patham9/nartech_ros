@@ -5,11 +5,10 @@ if [ "$1" == "metta" ]; then
     export LIBGL_ALWAYS_SOFTWARE=1
     gnome-terminal -- bash -c "sleep 10 && export LIBGL_ALWAYS_SOFTWARE=0 && export QT_QPA_PLATFORM=xcb && gz sim --render-engine ogre \$MY_WORLD; exec bash" &
     geany /home/nartech/nartech_ws/src/nartech_ros/channels/space.metta &
-    ros2 launch nav2_bringup tb4_simulation_launch.py slam:=True nav:=True headless:=True autostart:=True use_sim_time:=True rviz_config_file:=nartech_view.rviz world:=$MY_WORLD
-    if [ "$2" == "space.metta" ]; then
-        cd /home/nartech/nartech_ws/src/nartech_ros/channels/
-        sleep 20 && python3 grid.py metta &
+    if [ "$2" != "manual" ]; then
+        gnome-terminal -- bash -c "sleep 20 && cd /home/nartech/nartech_ws/src/nartech_ros/channels/ && python3 grid.py metta; exec bash" &
     fi
+    ros2 launch nav2_bringup tb4_simulation_launch.py slam:=True nav:=True headless:=True autostart:=True use_sim_time:=True rviz_config_file:=nartech_view.rviz world:=$MY_WORLD
     exit 0
 fi
 if [ "$1" != "nogrid" ] && [ "$2" != "nogrid" ] && [ "$3" != "nogrid" ]; then
