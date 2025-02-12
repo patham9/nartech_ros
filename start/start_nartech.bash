@@ -4,7 +4,7 @@ if [ "$1" == "metta" ]; then
     export QT_QPA_PLATFORM=xcb
     export LIBGL_ALWAYS_SOFTWARE=1
     gnome-terminal -- bash -c "sleep 10 && export LIBGL_ALWAYS_SOFTWARE=0 && export QT_QPA_PLATFORM=xcb && gz sim --render-engine ogre \$MY_WORLD; exec bash" &
-    geany /home/nartech/NACE/input.metta &
+    geany /home/nartech/nartech_ws/src/nartech_ros/channels/space.metta &
     ros2 launch nav2_bringup tb4_simulation_launch.py slam:=True nav:=True headless:=True autostart:=True use_sim_time:=True rviz_config_file:=nartech_view.rviz world:=$MY_WORLD
     if [ "$2" == "space.metta" ]; then
         cd /home/nartech/nartech_ws/src/nartech_ros/channels/

@@ -1,3 +1,25 @@
+from collections import deque
+from copy import deepcopy
+
+def BFS_for_nearest_unknown_cell(low_res_grid, new_width, new_height, start_x, start_y):
+    directions = [(0, 1, 'right'), (0, -1, 'left'), (1, 0, 'down'), (-1, 0, 'up')]
+    start_idx = start_y * new_width + start_x
+    queue = deque([(start_x, start_y)])
+    visited = set()
+    visited.add(start_idx)
+    while queue:
+        x, y = queue.popleft()
+        for dx, dy, action in directions:
+            nx, ny = x + dx, y + dy
+            nidx = ny * new_width + nx
+            if 0 <= nx < new_width and 0 <= ny < new_height:
+                if low_res_grid[nidx] == -1: #found unknown
+                    return (nx, ny)
+                if low_res_grid[nidx] == 0 and nidx not in visited:
+                    queue.append((nx, ny))
+                    visited.add(nidx)
+    return None
+
 from hyperon.ext import register_atoms
 from hyperon import *
 import time
@@ -58,12 +80,30 @@ def space_tick(node):
         node.start_navigation_by_moves("up")
     if cmd == "down":
         node.start_navigation_by_moves("down")
-    if cmd == "(goto test)":
-        obj = cmd.split("(goto ")[1].split(")")[0]
-        node.start_navigation_to_object(obj)
+    if cmd.startswith("(goto (coordinates "):
+        x_y = cmd.split("(goto (coordinates ")[1].split(")")[0]
+        x = int(x_y.split(" ")[0])
+        y = int(x_y.split(" ")[1])
+        node.start_navigation_to_coordinate((x, y))
+    alldetections = deepcopy(node.previous_detections)
+    objects = "("
+    if "self" in node.previous_detections:
+        (t, object_grid_x, object_grid_y, origin_x, origin_y) = node.previous_detections["self"]
+        x_y_unknown = BFS_for_nearest_unknown_cell(node.low_res_grid, node.new_width, node.new_height, object_grid_x, object_grid_y)
+        if x_y_unknown:
+            (x_unknown,y_unknown) =  x_y_unknown
+            alldetections["unknown"] = (time.time(), x_unknown, y_unknown, origin_x, origin_y)
+    print(alldetections)
+    for category in alldetections:
+        (t, object_grid_x, object_grid_y, _, __) = alldetections[category]
+        SEXP = f"(detection {category} (coordinates {object_grid_x} {object_grid_y}))"
+        objects += SEXP
+        if category == "self":
+            SELF_position = (object_grid_x, object_grid_y)
+    objects += ")"
     currentTime += 1
     elapsedTime = round(time.time() - start_time, 2)
-    print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE})"))
+    print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE} {objects})"))
 
 space_init()
 
@@ -95,7 +135,7 @@ from geometry_msgs.msg import Quaternion
 class LowResGridMapPublisher(Node):
     def __init__(self):
         super().__init__('lowres_gridmap_publisher')
-        self.M = {"wall": 100, "robot": 127, "chair": -126, "table": -126, "bottle": -125, "cup": -125, "can": -125, "person": -124}
+        self.M = {"wall": 100, "robot": 127, "chair": -126, "table": -126, "bottle": -125, "cup": -125, "can": -125, "person": -124, "unknown": -1}
         self.previous_detections_persistence = 100000.0 #how long to persist it in seconds
         self.previous_detections = dict([]) #where objects of type has been seen last time
         # Define QoS to keep only the latest image for string commands:
@@ -179,11 +219,9 @@ class LowResGridMapPublisher(Node):
         self.build_grid_periodic()
 
     def build_grid_periodic(self):
-        if self.robot_lowres_x is not None and "metta" in sys.argv:
-            space_tick(self)
         if self.navigation_goal is not None:
             target_cell, _ = self.navigation_goal
-            if self.check_collision(target_cell):
+            if "metta" not in sys.argv and self.check_collision(target_cell):
                 if self.goal_handle is not None:
                     self.goal_handle.cancel_goal_async()
                     self.get_logger().info('Cancellation of goal due collision.')
@@ -224,6 +262,7 @@ class LowResGridMapPublisher(Node):
         if 0 <= self.robot_lowres_x < self.new_width and 0 <= self.robot_lowres_y < self.new_height:
             robot_idx = self.robot_lowres_y * self.new_width + self.robot_lowres_x
             self.low_res_grid[robot_idx] = 127  # Mark as occupied
+            self.previous_detections["self"] = (time.time(), self.robot_lowres_x, self.robot_lowres_y, original_origin.position.x, original_origin.position.y) #persist last seen as object
             self.get_logger().info(f"Marked robot position at ({self.robot_lowres_x}, {self.robot_lowres_y}) as occupied.")
         else:
             self.get_logger().warn("Robot position is out of bounds in the downsampled map.")
@@ -295,15 +334,19 @@ class LowResGridMapPublisher(Node):
             # Adjust the stored grid coordinates by the computed offset
             new_object_grid_x = object_grid_x + offset_x
             new_object_grid_y = object_grid_y + offset_y
+            # Update dict for next convenient use:
+            self.previous_detections[category] = (t, new_object_grid_x, new_object_grid_y, current_origin_x, current_origin_y)
             # Make sure the new coordinates are within bounds
             if 0 <= new_object_grid_x < self.new_width and 0 <= new_object_grid_y < self.new_height:
                 obj_idx = new_object_grid_y * self.new_width + new_object_grid_x
-                if time.time() - t < self.previous_detections_persistence:
+                if time.time() - t < self.previous_detections_persistence and self.low_res_grid[obj_idx] != 127: #not robot cell
                     self.low_res_grid[obj_idx] = self.M[category]
         # Publish the low-resolution map
         self.publish_low_res_map(msg)
         elapsed_time = time.time() - start_time
         self.get_logger().info(f"DONE map: {elapsed_time:.2f} seconds")
+        if self.robot_lowres_x is not None and "metta" in sys.argv:
+            space_tick(self)
 
     def depth_callback(self, msg):
         self.get_logger().info("Depth image received")
@@ -398,13 +441,22 @@ class LowResGridMapPublisher(Node):
         self.lowres_grid_pub.publish(lowres_msg)
 
     def get_block_occupancy(self, data, x_start, y_start, width, factor):
+        occupied = False
+        empty = False
         for y in range(y_start, y_start + factor):
             for x in range(x_start, x_start + factor):
                 if y < (len(data) // width) and x < width and y * width + x < len(data):
-                    # If any cell in the block is occupied, mark the downsampled cell as occupied
-                    if data[y * width + x] == 100:  # Assuming 100 indicates occupancy
-                        return 100
-        return 0  # Mark as free if no occupied cells are found
+                    # If any cell in the block is occupied
+                    if data[y * width + x] == 100:
+                        occupied = True
+                    # If any cell is empty
+                    elif data[y * width + x] == 0:
+                        empty = True
+        if occupied:
+            return 100  # Mark as occupied if any cell in the block is occupied
+        if empty:
+            return 0  # Mark as empty if there is any empty cell
+        return -1  # If no cells are occupied or empty, mark as unknown
 
     def naceop_callback(self, msg):
         self.goalstart = self.mapupdate #current mapupdate
@@ -435,37 +487,32 @@ class LowResGridMapPublisher(Node):
     def check_collision(self, target_cell):
         cell_x, cell_y = target_cell
         idx = cell_y * self.new_width + cell_x #don't include self collision in the check
-        if idx < len(self.low_res_grid) and self.low_res_grid[idx] != 0 and self.low_res_grid[idx] != 127:
+        if idx < len(self.low_res_grid) and self.low_res_grid[idx] != 0 and self.low_res_grid[idx] != -1 and self.low_res_grid[idx] != 127:
             self.get_logger().info(f"COLLISION!!!")
             return True
         return False
 
-    def start_navigation_to_object(self, obj):
-        return
-        """NAV_STATE_SET(NAV_STATE_BUSY)
+    # Determine the target low-res position based on the command, and navigate to it
+    def start_navigation_by_moves(self, command):
         if self.robot_lowres_x is None:
-            return#-- NAV_STATE_SET(NAV_STATE_FAIL)
+            return
         target_cell = self.get_current_target_cell(command)
         if target_cell:
-            self.navigation_goal = (target_cell, "")
-            self.navigation_retries = 0
-            self.send_navigation_goal(target_cell, "")"""
+            self.start_navigation_to_coordinate(target_cell, command)
 
-    # Determine the target low-res position based on the command, and send it as navigation goal
-    def start_navigation_by_moves(self, command):
+    #navigate to target coordinate
+    def start_navigation_to_coordinate(self, target_cell, command=""):
         NAV_STATE_SET(NAV_STATE_BUSY)
         if self.robot_lowres_x is None:
             return#-- NAV_STATE_SET(NAV_STATE_FAIL)
-        target_cell = self.get_current_target_cell(command)
-        if target_cell:
-            self.navigation_goal = (target_cell, command)
-            self.navigation_retries = 0
-            self.send_navigation_goal(target_cell, command)
+        self.navigation_goal = (target_cell, command)
+        self.navigation_retries = 0
+        self.send_navigation_goal(target_cell, command)
 
     def send_navigation_goal(self, target_cell, command):
         # Convert low-res cell to world coordinates based on resolution and origin
-        origin_x, origin_y = self.origin.position.x, self.origin.position.y    # Example origin x, update with actual
-        if self.check_collision(target_cell):
+        origin_x, origin_y = self.origin.position.x, self.origin.position.y # Example origin x, update with actual
+        if "metta" not in sys.argv and self.check_collision(target_cell):
             if "," in self.navigation_goal[1]:
                 self.get_logger().info("COLLISION, shortening command")
                 newcommand = ",".join(self.navigation_goal[1].split(",")[1:])
@@ -511,7 +558,7 @@ class LowResGridMapPublisher(Node):
         if result.status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info("Goal succeeded!")
         else:
-            if self.navigation_retries < 10:
+            if self.navigation_retries < 10 and "metta" not in sys.argv:
                 self.get_logger().info("Goal failed with status: {0}, retrying".format(result.status))
                 self.navigation_retries += 1
                 self.send_navigation_goal(self.navigation_goal[0], self.navigation_goal[1])
@@ -529,7 +576,7 @@ class LowResGridMapPublisher(Node):
         return NAV_STATE_SET(NAV_STATE_TEMP)
 
     def publish_done(self, force_mapupdate):
-        force_mapupdate = True #not needed with fast map updating speed (leave functionality for now for testing)
+        force_mapupdate = False #not needed with fast map updating speed (leave functionality for now for testing)
         # Publish the 'done' message
         if force_mapupdate:
             waittime = 0.1
