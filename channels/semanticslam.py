@@ -15,11 +15,11 @@ import math
 from mettabridge import space_tick
 
 class SemanticSLAM:
-    def __init__(self, node, tf_buffer, robot_localization, yolo_detector):
+    def __init__(self, node, tf_buffer, localization, object_detector):
         self.node = node
         self.tf_buffer = tf_buffer
-        self.robot_localization = robot_localization
-        self.yolo_detector = yolo_detector
+        self.localization = localization
+        self.object_detector = object_detector
 
         # Mapping from object category to occupancy value
         self.M = {
@@ -94,8 +94,8 @@ class SemanticSLAM:
                 cell_value = self.get_block_occupancy(original_data, x, y, original_width, self.downsample_factor)
                 self.low_res_grid[new_idx] = cell_value
 
-        # Update robot position using the RobotLocalization module.
-        self.robot_lowres_x, self.robot_lowres_y = self.robot_localization.get_robot_lowres_position(
+        # Update robot position using the Localization module.
+        self.robot_lowres_x, self.robot_lowres_y = self.localization.get_robot_lowres_position(
             original_origin, original_resolution, self.downsample_factor)
         if 0 <= self.robot_lowres_x < self.new_width and 0 <= self.robot_lowres_y < self.new_height:
             robot_idx = self.robot_lowres_y * self.new_width + self.robot_lowres_x
@@ -107,32 +107,32 @@ class SemanticSLAM:
             self.node.get_logger().warn("Robot position is out of bounds in the downsampled map.")
 
         # Process detections from the YOLODetector module.
-        yolo_detections = self.yolo_detector.detections
-        depth_image = self.yolo_detector.depth_image
-        if yolo_detections is not None:
-            for out in yolo_detections:
+        object_detections = self.object_detector.detections
+        depth_image = self.object_detector.depth_image
+        if object_detections is not None:
+            for out in object_detections:
                 for detection in out:
                     scores = detection[5:]
                     class_id = int(np.argmax(scores))
                     confidence = scores[class_id]
                     if confidence > 0.5:  # Confidence threshold for semantic mapping
-                        center_x = int(detection[0] * self.yolo_detector.width)
-                        center_y = int(detection[1] * self.yolo_detector.height)
+                        center_x = int(detection[0] * self.object_detector.width)
+                        center_y = int(detection[1] * self.object_detector.height)
                         if depth_image is None:
                             self.node.get_logger().warn("Got detections but no depth image")
                             continue
                         depth_value = depth_image[center_y, center_x]
-                        category = self.yolo_detector.classes[class_id]
+                        category = self.object_detector.classes[class_id]
                         if depth_value > 0 and category in self.M:
-                            stamp = self.yolo_detector.last_image_stamp if self.yolo_detector.last_image_stamp else self.node.get_clock().now()
+                            stamp = self.object_detector.last_image_stamp if self.object_detector.last_image_stamp else self.node.get_clock().now()
                             self.node.get_logger().info(f"DEPTH DEBUG: {depth_value}")
                             # Create a point in camera coordinates.
                             camera_point = PointStamped(
                                 header=Header(stamp=stamp.to_msg(), frame_id='oakd_left_camera_frame'),
                                 point=Point(
                                     x=depth_value,
-                                    y=-(center_x - (self.yolo_detector.width / 2)) * depth_value / self.yolo_detector.fx,
-                                    z=-(center_y - (self.yolo_detector.height / 2)) * depth_value / self.yolo_detector.fy
+                                    y=-(center_x - (self.object_detector.width / 2)) * depth_value / self.object_detector.fx,
+                                    z=-(center_y - (self.object_detector.height / 2)) * depth_value / self.object_detector.fy
                                 )
                             )
                             try:
