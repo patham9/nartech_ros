@@ -23,7 +23,7 @@ if [ "$1" != "slow" ] && [ "$2" != "slow" ] && [ "$3" != "slow" ]; then
     gnome-terminal -- bash -c "sleep 10 && export LIBGL_ALWAYS_SOFTWARE=0 && export QT_QPA_PLATFORM=xcb && gz sim --render-engine ogre \$MY_WORLD; exec bash" &
     if [ "$1" != "nonace" ] && [ "$2" != "nonace" ] && [ "$3" != "nonace" ]; then
         gnome-terminal -- bash -c "sleep 20 && cd /home/nartech/NACE/ && python3 main.py world=-2 nogui; exec bash" &
-        python3 /home/nartech/nartech_ws/src/nartech_ros/channels/gui.py &
+        python3 /home/nartech/nartech_ws/src/nartech_ros/optional/gui.py &
     fi
     geany /home/nartech/NACE/input.metta &
     ros2 launch nav2_bringup tb4_simulation_launch.py slam:=True nav:=True headless:=True autostart:=True use_sim_time:=True rviz_config_file:=nartech_view.rviz world:=$MY_WORLD
@@ -33,7 +33,7 @@ else
     export LIBGL_ALWAYS_SOFTWARE=1
     if [ "$1" != "nonace" ] && [ "$2" != "nonace" ] && [ "$3" != "nonace" ]; then
         gnome-terminal -- bash -c "sleep 20 && cd /home/nartech/NACE/ && python3 main.py world=-2 nogui; exec bash" &
-        python3 /home/nartech/nartech_ws/src/nartech_ros/channels/gui.py &
+        python3 /home/nartech/nartech_ws/src/nartech_ros/optional/gui.py &
     fi
     geany /home/nartech/NACE/input.metta &
     ros2 launch nav2_bringup tb4_simulation_launch.py slam:=True nav:=True headless:=False autostart:=True use_sim_time:=True rviz_config_file:=nartech_view.rviz world:=$MY_WORLD

@@ -4,10 +4,10 @@ import rclpy
 from rclpy.node import Node
 import tf2_ros
 
-from yolo import YOLODetector
-from robot import RobotLocalization
+from objectdetection import ObjectDetector
+from localization import Localization
 from semanticslam import SemanticSLAM
-from nav import Navigation
+from navigation import Navigation
 
 class MainNode(Node):
     def __init__(self):
@@ -17,10 +17,10 @@ class MainNode(Node):
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
         # Instantiate the helper modules.
-        self.yolo_detector = YOLODetector(self, self.tf_buffer)
-        self.robot_localization = RobotLocalization(self, self.tf_buffer)
-        self.semantic_slam = SemanticSLAM(self, self.tf_buffer, self.robot_localization, self.yolo_detector)
-        self.navigation = Navigation(self, self.semantic_slam, self.robot_localization)
+        self.object_detector = ObjectDetector(self, self.tf_buffer)
+        self.localization = Localization(self, self.tf_buffer)
+        self.semantic_slam = SemanticSLAM(self, self.tf_buffer, self.localization, self.object_detector)
+        self.navigation = Navigation(self, self.semantic_slam, self.localization)
         self.start_navigation_to_coordinate = self.navigation.start_navigation_to_coordinate
 
 def main(args=None):

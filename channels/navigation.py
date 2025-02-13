@@ -12,10 +12,10 @@ from action_msgs.msg import GoalStatus
 from mettabridge import NAV_STATE_SET, NAV_STATE_BUSY, NAV_STATE_SUCCESS, NAV_STATE_FAIL
 
 class Navigation:
-    def __init__(self, node: Node, semantic_slam, robot_localization):
+    def __init__(self, node: Node, semantic_slam, localization):
         self.node = node
         self.semantic_slam = semantic_slam
-        self.robot_localization = robot_localization
+        self.localization = localization
         self.navigation_goal = None
         self.navigation_retries = 0
         self.goal_handle = None
@@ -71,7 +71,7 @@ class Navigation:
         goal_pose.header.stamp = self.node.get_clock().now().to_msg()
         goal_pose.pose.position.x = origin_x + (cell_x * self.semantic_slam.new_resolution) + self.semantic_slam.new_resolution / 2
         goal_pose.pose.position.y = origin_y + (cell_y * self.semantic_slam.new_resolution) + self.semantic_slam.new_resolution / 2
-        goal_pose.pose.orientation = self.robot_localization.set_orientation(command)
+        goal_pose.pose.orientation = self.localization.set_orientation(command)
         self.node.get_logger().info(f"Sending goal to ({goal_pose.pose.position.x}, {goal_pose.pose.position.y})")
         if not self.action_client.wait_for_server(timeout_sec=1.0):
             self.node.get_logger().error("Action server not available!")

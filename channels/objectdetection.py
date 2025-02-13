@@ -9,7 +9,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from rclpy.time import Time
 
-class YOLODetector:
+class ObjectDetector:
     def __init__(self, node: Node, tf_buffer):
         self.node = node
         self.tf_buffer = tf_buffer  # (not used directly here but available for later extensions)

@@ -6,7 +6,7 @@ from rclpy.time import Time
 import tf2_ros
 from geometry_msgs.msg import Quaternion
 
-class RobotLocalization:
+class Localization:
     def __init__(self, node, tf_buffer):
         self.node = node
         self.tf_buffer = tf_buffer
