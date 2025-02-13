@@ -65,11 +65,11 @@ def space_tick(node):
         x = int(x_y.split(" ")[0])
         y = int(x_y.split(" ")[1])
         node.start_navigation_to_coordinate((x, y))
-    alldetections = deepcopy(node.previous_detections)
+    alldetections = deepcopy(node.semantic_slam.previous_detections)
     objects = "("
-    if "self" in node.previous_detections:
-        (t, object_grid_x, object_grid_y, origin_x, origin_y) = node.previous_detections["self"]
-        x_y_unknown = BFS_for_nearest_unknown_cell(node.low_res_grid, node.new_width, node.new_height, object_grid_x, object_grid_y)
+    if "self" in node.semantic_slam.previous_detections:
+        (t, object_grid_x, object_grid_y, origin_x, origin_y) = node.semantic_slam.previous_detections["self"]
+        x_y_unknown = BFS_for_nearest_unknown_cell(node.semantic_slam.low_res_grid, node.semantic_slam.new_width, node.semantic_slam.new_height, object_grid_x, object_grid_y)
         if x_y_unknown:
             (x_unknown,y_unknown) =  x_y_unknown
             alldetections["unknown"] = (time.time(), x_unknown, y_unknown, origin_x, origin_y)
