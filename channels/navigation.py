@@ -19,12 +19,10 @@ class Navigation:
         self.navigation_goal = None
         self.navigation_retries = 0
         self.goal_handle = None
-
         qos_profile_str = rclpy.qos.QoSProfile(depth=1)
         qos_profile_str.history = rclpy.qos.QoSHistoryPolicy.KEEP_LAST
         qos_profile_str.durability = rclpy.qos.QoSDurabilityPolicy.TRANSIENT_LOCAL
         qos_profile_str.reliability = rclpy.qos.QoSReliabilityPolicy.RELIABLE
-
         self.naceop_sub = self.node.create_subscription(
             String, '/naceop', self.naceop_callback, qos_profile_str)
         self.nacedone_pub = self.node.create_publisher(String, '/nacedone', qos_profile_str)

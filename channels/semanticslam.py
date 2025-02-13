@@ -20,7 +20,6 @@ class SemanticSLAM:
         self.tf_buffer = tf_buffer
         self.localization = localization
         self.object_detector = object_detector
-
         # Mapping from object category to occupancy value
         self.M = {
             "wall": 100, "robot": 127, "chair": -126, "table": -126,
@@ -28,23 +27,18 @@ class SemanticSLAM:
         }
         self.previous_detections_persistence = 100000.0  # seconds
         self.previous_detections = {}
-
         # Downsampling parameters
         self.downsample_factor = 28
-
         # Set up a QoS profile for map topics.
         qos_profile_map = QoSProfile(depth=1)
         qos_profile_map.history = QoSHistoryPolicy.KEEP_LAST
         qos_profile_map.durability = QoSDurabilityPolicy.TRANSIENT_LOCAL
-
         self.map_sub = self.node.create_subscription(
             OccupancyGrid, '/map', self.occ_grid_callback, qos_profile_map)
         self.lowres_grid_pub = self.node.create_publisher(
             OccupancyGrid, '/lowres_map', qos_profile_map)
-
         # Timer to periodically process and publish the low-res grid.
         self.timer = self.node.create_timer(2.0, self.build_grid_periodic)
-
         # State variables used during grid processing.
         self.cached_msg = None
         self.low_res_grid = None
@@ -74,7 +68,6 @@ class SemanticSLAM:
         original_resolution = msg.info.resolution
         original_origin = msg.info.origin
         original_data = msg.data
-
         # Compute new grid dimensions and resolution.
         self.new_width = original_width // self.downsample_factor
         self.new_height = original_height // self.downsample_factor
@@ -83,7 +76,6 @@ class SemanticSLAM:
             self.new_width += 1
         if original_height % self.downsample_factor != 0:
             self.new_height += 1
-
         # Initialize a low-resolution grid (default free cells are 0).
         self.low_res_grid = [0] * (self.new_width * self.new_height)
         for y in range(0, original_height, self.downsample_factor):
@@ -93,7 +85,6 @@ class SemanticSLAM:
                 new_idx = new_y * self.new_width + new_x
                 cell_value = self.get_block_occupancy(original_data, x, y, original_width, self.downsample_factor)
                 self.low_res_grid[new_idx] = cell_value
-
         # Update robot position using the Localization module.
         self.robot_lowres_x, self.robot_lowres_y = self.localization.get_robot_lowres_position(
             original_origin, original_resolution, self.downsample_factor)
@@ -105,7 +96,6 @@ class SemanticSLAM:
             self.node.get_logger().info(f"Marked robot position at ({self.robot_lowres_x}, {self.robot_lowres_y}) as occupied.")
         else:
             self.node.get_logger().warn("Robot position is out of bounds in the downsampled map.")
-
         # Process detections from the YOLODetector module.
         object_detections = self.object_detector.detections
         depth_image = self.object_detector.depth_image
@@ -154,7 +144,6 @@ class SemanticSLAM:
                                 self.node.get_logger().error(f"Transform exception: {str(e)}")
         else:
             self.node.get_logger().warn("No detections received")
-
         # Update previously detected objects based on map shifts.
         for category in list(self.previous_detections.keys()):
             (t, object_grid_x, object_grid_y, old_origin_x, old_origin_y) = self.previous_detections[category]

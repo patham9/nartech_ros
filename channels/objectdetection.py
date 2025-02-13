@@ -19,26 +19,22 @@ class ObjectDetector:
         self.depth_image = None
         self.last_image_stamp = None
         self.lock = threading.Lock()
-
         # Parameters for image dimensions and focal lengths
         self.image_width = 320
         self.image_height = 240
         self.horizontal_fov = 1.25  # in radians
         self.fx = self.image_width / (2 * np.tan(self.horizontal_fov / 2))
         self.fy = self.image_height / (2 * np.tan(self.horizontal_fov / 2))
-
         # Load YOLO model and classes
         self.net = cv2.dnn.readNet('yolov4-tiny.weights', 'yolov4-tiny.cfg')
         self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
         self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
         with open('coco.names', 'r') as f:
             self.classes = [line.strip() for line in f.readlines()]
-
         # Create subscribers and publisher using a QoS profile that keeps only the latest message.
         qos_profile_yolo = rclpy.qos.QoSProfile(depth=1)
         qos_profile_yolo.history = rclpy.qos.QoSHistoryPolicy.KEEP_LAST
         qos_profile_yolo.durability = rclpy.qos.QoSDurabilityPolicy.VOLATILE
-
         self.image_sub = self.node.create_subscription(
             Image, '/rgbd_camera/image', self.image_callback, qos_profile_yolo)
         self.depth_sub = self.node.create_subscription(
@@ -57,13 +53,11 @@ class ObjectDetector:
         self.node.get_logger().info("Processing image for object detection")
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         self.height, self.width, _ = cv_image.shape
-
         blob = cv2.dnn.blobFromImage(cv_image, 0.00392, (608, 608), (0, 0, 0), True, crop=False)
         self.net.setInput(blob)
         layer_names = self.net.getLayerNames()
         output_layers = [layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()]
         self.detections = self.net.forward(output_layers)
-
         # Process detections: draw bounding boxes and labels on the image.
         for out in self.detections:
             for detection in out:

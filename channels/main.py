@@ -15,7 +15,6 @@ class MainNode(Node):
         # Create a single TF2 buffer and listener to be shared across modules.
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
-
         # Instantiate the helper modules.
         self.object_detector = ObjectDetector(self, self.tf_buffer)
         self.localization = Localization(self, self.tf_buffer)
