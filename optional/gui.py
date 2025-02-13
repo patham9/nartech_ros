@@ -13,6 +13,7 @@ try:
     client = OpenAI()
 except:
     OpenAI_API_KEY_missing = True
+    print("OpenAI client is not defined!")
 
 def encode_sentence(Sentence = "The wall should be near the table"):
     Prompt = f"Objects: {str(AllObjects)}"
@@ -37,6 +38,7 @@ def comm_input():
     entry.insert(0, obtainedtext)  # Set the new value
 
 def submit_input():
+    label.config(text=label_text)
     input_text = entry.get()
     if input_text == "":
         label.config(text="Input missing.")
@@ -44,16 +46,20 @@ def submit_input():
     with open("/home/nartech/NACE/input.metta", "w") as file:
         file.write(input_text)
     #label.config(text="Input submitted.")
+    entry.delete(0, tk.END)
 
 def add_wait():
+    label.config(text=label_text)
     entry.delete(0, tk.END)  # Clear the current content
     entry.insert(0, "!(wait)")  # Set the new value
 
 def add_reach_human():
+    label.config(text=label_text)
     entry.delete(0, tk.END)  # Clear the current content
     entry.insert(0, "!(AddGoalEvent (((x x w) --> near) (1.0 0.90)))")  # Set the new value
 
 def add_reach_chair():
+    label.config(text=label_text)
     entry.delete(0, tk.END)  # Clear the current content
     entry.insert(0, "!(AddGoalEvent (((x x T) --> near) (1.0 0.90)))")  # Set the new value
 
@@ -65,18 +71,21 @@ root.title("Input GUI")
 if OpenAI_API_KEY_missing:
     issuelabel = tk.Label(root, text="OpenAI API key missing, export it in .bashrc to allow for NL input!")
     issuelabel.pack(pady=10)
+    label_text = ''
 else:
-    # Add a label for status
-    label = tk.Label(root, text="Add natural language command:")
-    label.pack(pady=10)
+    label_text = "Add natural language command:"
+
+# Add a label for status
+label = tk.Label(root, text=label_text)
+label.pack(pady=10)
 
 # Add input field
-textinput = tk.Entry(root, width=50)
-textinput.pack(pady=10)
-
-# Add submit button
-comm_button = tk.Button(root, text="Communicate", command=comm_input)
-comm_button.pack(pady=10)
+if not OpenAI_API_KEY_missing:
+    textinput = tk.Entry(root, width=50)
+    textinput.pack(pady=10)
+    # Add submit button
+    comm_button = tk.Button(root, text="Communicate", command=comm_input)
+    comm_button.pack(pady=10)
 
 # Add "Examples" category
 examples_frame = tk.LabelFrame(root, text="Examples", padx=10, pady=10)
