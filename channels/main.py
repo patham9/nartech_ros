@@ -4,10 +4,10 @@ import rclpy
 from rclpy.node import Node
 import tf2_ros
 
-from yolo import ObjectDetector
-from robot import Localization
+from objectdetection import ObjectDetector
+from localization import Localization
 from semanticslam import SemanticSLAM
-from nav import Navigation
+from navigation import Navigation
 
 class MainNode(Node):
     def __init__(self):
