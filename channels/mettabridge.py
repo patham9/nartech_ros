@@ -50,6 +50,9 @@ start_time = time.time()
 
 def space_tick(node):
     global currentTime, MeTTaROS2Command
+    elapsedTime = round(time.time() - start_time, 2)
+    if elapsedTime < 10:
+        return
     cmd = MeTTaROS2Command
     MeTTaROS2Command = ""
     if cmd == "right":
@@ -82,7 +85,6 @@ def space_tick(node):
             SELF_position = (object_grid_x, object_grid_y)
     objects += ")"
     currentTime += 1
-    elapsedTime = round(time.time() - start_time, 2)
     print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE} {objects})"))
 
 space_init()
