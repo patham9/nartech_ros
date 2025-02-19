@@ -9,6 +9,7 @@ cd ~/nartech_ws/src/nartech_ros/
 git pull
 cd ~/AniNAL
 git pull
+sh build.sh
 cd ~/OpenNARS-for-Applications
 git pull
 cd ~/NACE
