@@ -9,9 +9,9 @@ cd ~/nartech_ws/src/nartech_ros/
 git pull
 cd ~/AniNAL
 git pull
-sh build.sh
 cd ~/OpenNARS-for-Applications
 git pull
+sh build.sh
 cd ~/NACE
 git pull
 cd ~/metta-morph
