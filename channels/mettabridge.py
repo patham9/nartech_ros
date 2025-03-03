@@ -3,6 +3,8 @@ from copy import deepcopy
 from hyperon.ext import register_atoms
 from hyperon import *
 import time
+import io
+import contextlib
 
 NAV_STATE_FAIL = "FAIL"
 NAV_STATE_BUSY = "BUSY"
@@ -27,8 +29,21 @@ def wrapnpop(func):
         return [res]
     return wrapper
 
+def extract_metta_values(d):
+    values = []
+    if isinstance(d, dict):
+        for key, value in d.items():
+            if key == 'metta':
+                values.append(value)
+            else:
+                values.extend(extract_metta_values(value))
+    elif isinstance(d, list):  # Handle lists of dictionaries
+        for item in d:
+            values.extend(extract_metta_values(item))
+    return values
+
 MeTTaROS2Command = ""
-def call_bridgeinput(*a):
+def call_rosinput(*a):
     global runner, MeTTaROS2Command
     tokenizer = runner.tokenizer()
     cmd = str(a[0])
@@ -36,13 +51,38 @@ def call_bridgeinput(*a):
     MeTTaROS2Command = cmd
     return parser.parse(tokenizer)
 
+#ONA IMPORT:
+cwd = os.getcwd()
+os.chdir('/home/nartech/OpenNARS-for-Applications/misc/Python/')
+sys.path.append(os.getcwd())
+from MeTTa import *
+os.chdir(cwd)
+
+def call_narsinput(*a):
+    global runner
+    tokenizer = runner.tokenizer()
+    cmd = str(a[0])
+    unknownCommand = True
+    for narscommand in ["AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent", "EventQuestion", "EternalQuestion"]:
+        if cmd.startswith(f"({narscommand} "):
+            ret = NAR_AddInput(f"!({narscommand} "+cmd.split(f"({narscommand} ")[1])
+            narsret = "(" + (" ".join(extract_metta_values(ret))) + ")"
+            parser = SExprParser(narsret)
+            unknownCommand = False
+            break
+    if unknownCommand:
+        parser = SExprParser(f"(Unknown command: {cmd})")
+    return parser.parse(tokenizer)
+
 def space_init():
     global runner
     with open("space.metta", "r") as f:
         metta_code = f.read()
     runner = MeTTa()
-    call_bridgeinput_atom = G(PatternOperation('bridgeinput', wrapnpop(call_bridgeinput), unwrap=False))
-    runner.register_atom("bridgeinput", call_bridgeinput_atom)
+    call_rosinput_atom = G(PatternOperation('rosinput', wrapnpop(call_rosinput), unwrap=False))
+    call_narsinput_atom = G(PatternOperation('narsinput', wrapnpop(call_narsinput), unwrap=False))
+    runner.register_atom("rosinput", call_rosinput_atom)
+    runner.register_atom("narsinput", call_narsinput_atom)
     runner.run(metta_code)
 
 currentTime = 0
@@ -88,3 +128,12 @@ def space_tick(node):
     print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE} {objects})"))
 
 space_init()
+if __name__ == "__main__":
+    with open("mettabridgetest.metta") as f:
+        code = f.read()
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        result = runner.run(code)
+    for x in result:
+        print(x)  # Only prints the return value
+
