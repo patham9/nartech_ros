@@ -9,9 +9,19 @@ sys.path.append(os.getcwd())
 from MeTTa import *
 os.chdir(cwd)
 
-def nars_set_metta_runner(runnerinstance):
+def narsbridge_init(runnerinstance):
     global runner
     runner = runnerinstance
+    runner.run("""
+(= (StoreToSpace $space $x)
+   (let $y (superpose $x) (add-atom $space $y)))
+(= (NARS_I $Command $Content)
+   (narsinput ($Command $Content)))
+(= (NARS_IO $Command $Content)
+   (narsIO ($Command $Content)))
+(= (NARS_IOS $space $Command $Content)
+   (StoreToSpace $space (narsIO ($Command $Content))))
+    """)
 
 def extract_metta_values(d):
     values = []
@@ -25,10 +35,6 @@ def extract_metta_values(d):
         for item in d:
             values.extend(extract_metta_values(item))
     return values
-
-#helper function for debugging
-def exit42(s="42"):
-    return SExprParser(s).parse(runner.tokenizer())
 
 def call_narsIO(*a):
     global runner

@@ -1,6 +1,6 @@
 from exploration import *
 from copy import deepcopy
-from narsbridge import nars_set_metta_runner, call_narsinput, call_narsIO
+from narsbridge import narsbridge_init, call_narsinput, call_narsIO
 from hyperon.ext import register_atoms
 from hyperon import *
 import time
@@ -44,13 +44,13 @@ def space_init():
     with open("space.metta", "r") as f:
         metta_code = f.read()
     runner = MeTTa()
-    nars_set_metta_runner(runner)
     call_rosinput_atom = G(PatternOperation('rosinput', wrapnpop(call_rosinput), unwrap=False))
     call_narsinput_atom = G(PatternOperation('narsinput', wrapnpop(call_narsinput), unwrap=False))
     call_narsIO_atom = G(PatternOperation('narsIO', wrapnpop(call_narsIO), unwrap=False))
     runner.register_atom("rosinput", call_rosinput_atom)
     runner.register_atom("narsinput", call_narsinput_atom)
     runner.register_atom("narsIO", call_narsIO_atom)
+    narsbridge_init(runner)
     runner.run(metta_code)
 
 currentTime = 0
