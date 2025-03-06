@@ -13,14 +13,14 @@ def narsbridge_init(runnerinstance):
     global runner
     runner = runnerinstance
     runner.run("""
-(= (StoreToSpace $space $x)
+(= (nartech.tuple.space $space $x)
    (let $y (superpose $x) (add-atom $space $y)))
-(= (NARS_I $Command $Content)
+(= (nartech.nars $Command $Content)
    (narsinput ($Command $Content)))
-(= (NARS_IO $Command $Content)
+(= (nartech.nars.tuple $Command $Content)
    (narsIO ($Command $Content)))
-(= (NARS_IOS $space $Command $Content)
-   (StoreToSpace $space (narsIO ($Command $Content))))
+(= (nartech.nars.space $space $Command $Content)
+   (nartech.tuple.space $space (narsIO ($Command $Content))))
     """)
 
 def extract_metta_values(d):
@@ -42,10 +42,10 @@ def call_narsIO(*a):
     unknownCommand = True
     threshold = ""
     for narscommand in ["AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent",
-                        "EventQuestion", "EternalQuestion", "(EternalQuestionMultiple", "(EventQuestionMultiple"]:
+                        "EventQuestion", "EternalQuestion", "(EternalQuestionAboveExpectation", "(EventQuestionAboveExpectation"]:
         if cmd.startswith(f"({narscommand} "):
-            if narscommand == "(EternalQuestionMultiple":
-                threshold = cmd.split("(EternalQuestionMultiple ")[1].split(" ")[0]
+            if narscommand == "(EternalQuestionAboveExpectation":
+                threshold = cmd.split("(EternalQuestionAboveExpectation ")[1].split(" ")[0]
             ret = NAR_AddInput(f"!"+cmd)
             narsret = "("
             for category in ['input', 'derivations', 'answers']:
