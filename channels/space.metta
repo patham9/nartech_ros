@@ -10,6 +10,6 @@
             (if (== $persons ())
                 (let $unknowns (ObjectsOfCategory unknown $objects)
                      (let (detection unknown (coordinates $x $y)) (superpose $unknowns)
-                          (rosinput (goto (coordinates $x $y)))))
+                          (nartech.ros (goto (coordinates $x $y)))))
                 (let (detection person (coordinates $x $y)) (superpose $persons)
-                     (rosinput (goto (coordinates $x $y))))))))
+                     (nartech.ros (goto (coordinates $x $y))))))))

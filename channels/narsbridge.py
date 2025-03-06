@@ -15,28 +15,11 @@ def narsbridge_init(runnerinstance):
     runner.run("""
 (= (nartech.tuple.space $space $x)
    (let $y (superpose $x) (add-atom $space $y)))
-(= (nartech.nars $Command $Content)
-   (narsinput ($Command $Content)))
-(= (nartech.nars.tuple $Command $Content)
-   (narsIO ($Command $Content)))
-(= (nartech.nars.space $space $Command $Content)
-   (nartech.tuple.space $space (narsIO ($Command $Content))))
+(= (nartech.nars.space $space ($Command $Content))
+   (nartech.tuple.space $space (nartech.nars.tuple ($Command $Content))))
     """)
 
-def extract_metta_values(d):
-    values = []
-    if isinstance(d, dict):
-        for key, value in d.items():
-            if key == 'metta':
-                values.append(value.replace("#","$"))
-            else:
-                values.extend(extract_metta_values(value))
-    elif isinstance(d, list):  # Handle lists of dictionaries
-        for item in d:
-            values.extend(extract_metta_values(item))
-    return values
-
-def call_narsIO(*a):
+def call_nars_tuple(*a):
     global runner
     cmd = str(a[0])
     unknownCommand = True
@@ -66,7 +49,7 @@ def call_narsIO(*a):
         parser = SExprParser(f"(Unknown command: {cmd})")
     return parser.parse(runner.tokenizer())
 
-def call_narsinput(*a):
+def call_nars(*a):
     global runner
     tokenizer = runner.tokenizer()
     cmd = str(a[0])

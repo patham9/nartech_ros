@@ -1,6 +1,6 @@
 from exploration import *
 from copy import deepcopy
-from narsbridge import narsbridge_init, call_narsinput, call_narsIO
+from narsbridge import narsbridge_init, call_nars, call_nars_tuple
 from hyperon.ext import register_atoms
 from hyperon import *
 import time
@@ -31,7 +31,7 @@ def wrapnpop(func):
     return wrapper
 
 MeTTaROS2Command = ""
-def call_rosinput(*a):
+def call_ros(*a):
     global runner, MeTTaROS2Command
     tokenizer = runner.tokenizer()
     cmd = str(a[0])
@@ -44,12 +44,12 @@ def space_init():
     with open("space.metta", "r") as f:
         metta_code = f.read()
     runner = MeTTa()
-    call_rosinput_atom = G(PatternOperation('rosinput', wrapnpop(call_rosinput), unwrap=False))
-    call_narsinput_atom = G(PatternOperation('narsinput', wrapnpop(call_narsinput), unwrap=False))
-    call_narsIO_atom = G(PatternOperation('narsIO', wrapnpop(call_narsIO), unwrap=False))
-    runner.register_atom("rosinput", call_rosinput_atom)
-    runner.register_atom("narsinput", call_narsinput_atom)
-    runner.register_atom("narsIO", call_narsIO_atom)
+    call_ros_atom = G(PatternOperation('nartech.ros', wrapnpop(call_ros), unwrap=False))
+    call_nars_atom = G(PatternOperation('nartech.nars', wrapnpop(call_nars), unwrap=False))
+    call_nars_tuple_atom = G(PatternOperation('nartech.nars.turple', wrapnpop(call_nars_tuple), unwrap=False))
+    runner.register_atom("nartech.ros", call_ros_atom)
+    runner.register_atom("nartech.nars", call_nars_atom)
+    runner.register_atom("nartech.nars.tuple", call_nars_tuple_atom)
     narsbridge_init(runner)
     runner.run(metta_code)
 
