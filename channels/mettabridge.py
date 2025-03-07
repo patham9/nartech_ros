@@ -1,8 +1,11 @@
 from exploration import *
 from copy import deepcopy
+from narsplugin import narsplugin_init, call_nars, call_nars_tuple
 from hyperon.ext import register_atoms
 from hyperon import *
+import sys
 import time
+import io
 
 NAV_STATE_FAIL = "FAIL"
 NAV_STATE_BUSY = "BUSY"
@@ -28,22 +31,37 @@ def wrapnpop(func):
     return wrapper
 
 MeTTaROS2Command = ""
-def call_bridgeinput(*a):
+def call_ros(*a):
     global runner, MeTTaROS2Command
     tokenizer = runner.tokenizer()
     cmd = str(a[0])
-    parser = SExprParser(f"(MeTTaROS2Command {cmd})")
+    parser = SExprParser(f"(nartech.ros.command {cmd})")
     MeTTaROS2Command = cmd
     return parser.parse(tokenizer)
 
 def space_init():
     global runner
-    with open("space.metta", "r") as f:
-        metta_code = f.read()
+    for arg in sys.argv:
+        if arg.endswith(".metta"):
+            with open(arg, "r") as f:
+                metta_code = f.read()
     runner = MeTTa()
-    call_bridgeinput_atom = G(PatternOperation('bridgeinput', wrapnpop(call_bridgeinput), unwrap=False))
-    runner.register_atom("bridgeinput", call_bridgeinput_atom)
-    runner.run(metta_code)
+    runner.run("""
+(= (nartech.ros.objects.filter $category $objects)
+   (collapse (let* (($obj (superpose $objects))
+                    ((detection $category (coordinates $x $y)) $obj))
+                   $obj)))
+    """)
+    call_ros_atom = G(PatternOperation('nartech.ros', wrapnpop(call_ros), unwrap=False))
+    call_nars_atom = G(PatternOperation('nartech.nars', wrapnpop(call_nars), unwrap=False))
+    call_nars_tuple_atom = G(PatternOperation('nartech.nars.tuple', wrapnpop(call_nars_tuple), unwrap=False))
+    runner.register_atom("nartech.ros", call_ros_atom)
+    runner.register_atom("nartech.nars", call_nars_atom)
+    runner.register_atom("nartech.nars.tuple", call_nars_tuple_atom)
+    narsplugin_init(runner)
+    result = runner.run(metta_code)
+    for x in result:
+        print(x)  # Only prints the return value
 
 currentTime = 0
 start_time = time.time()
@@ -63,8 +81,8 @@ def space_tick(node):
         node.start_navigation_by_moves("up")
     if cmd == "down":
         node.start_navigation_by_moves("down")
-    if cmd.startswith("(goto (coordinates "):
-        x_y = cmd.split("(goto (coordinates ")[1].split(")")[0]
+    if cmd.startswith("(go (coordinates "):
+        x_y = cmd.split("(go (coordinates ")[1].split(")")[0]
         x = int(x_y.split(" ")[0])
         y = int(x_y.split(" ")[1])
         node.start_navigation_to_coordinate((x, y))
@@ -88,3 +106,12 @@ def space_tick(node):
     print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE} {objects})"))
 
 space_init()
+if __name__ == "__main__":
+    if len(sys.argv) <= 1:
+        print("pass metta file name")
+    with open(sys.argv[1]) as f:
+        code = f.read()
+    result = runner.run(code)
+    for x in result:
+        print(x)  # Only prints the return value
+

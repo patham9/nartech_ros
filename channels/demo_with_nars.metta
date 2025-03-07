@@ -1,0 +1,13 @@
+!(nartech.nars (Command volume=0))
+!(nartech.nars (AddBeliefEternal ((((($1 * $2) --> perceive) &/ (({SELF} * $1) --> (^ go))) =/> (($1 * ({SELF} & $2)) --> perceive)) (1.0 0.9))))
+
+(= (Step $stepTime $realTime $navstate $objects)
+   (if (== $navstate BUSY)
+       (navigation stack busy $objects)
+       (superpose ((nartech.nars.perceive $objects)
+                   (if (== () (nartech.nars.execute (AddGoalEvent (((?1 * ({SELF} & person)) --> perceive) (1.0 0.9)))))
+                       (let $unknowns (nartech.ros.objects.filter unknown $objects)
+                            (let (detection unknown (coordinates $x $y)) (superpose $unknowns)
+                                 (nartech.ros (go (coordinates $x $y)))))
+                       Empty)
+                   (nartech.nars (Cycles 10))))))

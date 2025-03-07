@@ -52,7 +52,7 @@ class Navigation:
     def send_navigation_goal(self, target_cell, command):
         origin_x, origin_y = self.semantic_slam.origin.position.x, self.semantic_slam.origin.position.y
         import sys
-        if "metta" not in sys.argv and self.check_collision(target_cell):
+        if not any(arg.endswith(".metta") for arg in sys.argv) and self.check_collision(target_cell):
             if "," in self.navigation_goal[1]:
                 self.node.get_logger().info("COLLISION, shortening command")
                 newcommand = ",".join(self.navigation_goal[1].split(",")[1:])
