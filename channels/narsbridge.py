@@ -1,7 +1,6 @@
 from copy import deepcopy
 from hyperon import *
 import io
-import contextlib
 #ONA import:
 cwd = os.getcwd()
 os.chdir('/home/nartech/OpenNARS-for-Applications/misc/Python/')
@@ -13,10 +12,42 @@ def narsbridge_init(runnerinstance):
     global runner
     runner = runnerinstance
     runner.run("""
+;puts the elements of a tuple into a space
 (= (nartech.tuple.space $space $x)
    (let $y (superpose $x) (add-atom $space $y)))
+
+;adds input to NARS returning reasoning results into a space
 (= (nartech.nars.space $space ($Command $Content))
    (nartech.tuple.space $space (nartech.nars.tuple ($Command $Content))))
+
+;turns operation into command for our ROS layer
+(= (nartech.nars.ros ($op {}))
+   (nartech.ros $op))
+
+(= (nartech.nars.ros (go ($arg1 * $arg2)))
+   (nartech.ros (go (coordinates $arg1 $arg2))))
+
+;simple operation format:
+(= (nartech.nars.operation $x)
+   (let (INPUT (.: ((^ $op) (1.0 0.9)))) (superpose $x)
+        ($op ())))
+
+;operations with args format:
+(= (nartech.nars.operation $x)
+   (let (INPUT (.: ((($self * $args) --> (^ $op)) (1.0 0.9)))) (superpose $x)
+        ($op $args)))
+
+;execute the operation that NARS wants to execute
+(= (nartech.nars.execute ($Command $Content))
+   (case (nartech.nars.ros (nartech.nars.operation (nartech.nars.tuple ($Command $Content))))
+         (((nartech.ros.command $x) (nartech.ros.command $x))
+          (Empty ()))))
+
+(= (nartech.nars.perceive $category $objects)
+   (let* (($obj (superpose $objects))
+                ((detection $category (coordinates $x $y)) $obj))
+         (superpose ((nartech.nars (AddBeliefEvent (((($x * $y) * $category) --> perceive) (1.0 0.9))))
+                     (nartech.nars (Command concurrent))))))
     """)
 
 def call_nars_tuple(*a):
@@ -24,7 +55,7 @@ def call_nars_tuple(*a):
     cmd = str(a[0])
     unknownCommand = True
     threshold = ""
-    for narscommand in ["AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent",
+    for narscommand in ["Cycles", "Command", "AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent",
                         "EventQuestion", "EternalQuestion", "(EternalQuestionAboveExpectation", "(EventQuestionAboveExpectation"]:
         if cmd.startswith(f"({narscommand} "):
             if narscommand == "(EternalQuestionAboveExpectation":
@@ -54,7 +85,7 @@ def call_nars(*a):
     tokenizer = runner.tokenizer()
     cmd = str(a[0])
     unknownCommand = True
-    for narscommand in ["AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent", "EventQuestion", "EternalQuestion"]:
+    for narscommand in ["Cycles", "Command", "AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent"]:
         if cmd.startswith(f"({narscommand} "):
             ret = NAR_AddInput(f"!({narscommand} "+cmd.split(f"({narscommand} ")[1])
             parser = SExprParser("()")

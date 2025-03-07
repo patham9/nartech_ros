@@ -5,7 +5,6 @@ from hyperon.ext import register_atoms
 from hyperon import *
 import time
 import io
-import contextlib
 
 NAV_STATE_FAIL = "FAIL"
 NAV_STATE_BUSY = "BUSY"
@@ -35,7 +34,7 @@ def call_ros(*a):
     global runner, MeTTaROS2Command
     tokenizer = runner.tokenizer()
     cmd = str(a[0])
-    parser = SExprParser(f"(MeTTaROS2Command {cmd})")
+    parser = SExprParser(f"(nartech.ros.command {cmd})")
     MeTTaROS2Command = cmd
     return parser.parse(tokenizer)
 
@@ -44,14 +43,22 @@ def space_init():
     with open("space.metta", "r") as f:
         metta_code = f.read()
     runner = MeTTa()
+    runner.run("""
+(= (nartech.ros.objects.filter $category $objects)
+   (collapse (let* (($obj (superpose $objects))
+                    ((detection $category (coordinates $x $y)) $obj))
+                   $obj)))
+    """)
     call_ros_atom = G(PatternOperation('nartech.ros', wrapnpop(call_ros), unwrap=False))
     call_nars_atom = G(PatternOperation('nartech.nars', wrapnpop(call_nars), unwrap=False))
-    call_nars_tuple_atom = G(PatternOperation('nartech.nars.turple', wrapnpop(call_nars_tuple), unwrap=False))
+    call_nars_tuple_atom = G(PatternOperation('nartech.nars.tuple', wrapnpop(call_nars_tuple), unwrap=False))
     runner.register_atom("nartech.ros", call_ros_atom)
     runner.register_atom("nartech.nars", call_nars_atom)
     runner.register_atom("nartech.nars.tuple", call_nars_tuple_atom)
     narsbridge_init(runner)
-    runner.run(metta_code)
+    result = runner.run(metta_code)
+    for x in result:
+        print(x)  # Only prints the return value
 
 currentTime = 0
 start_time = time.time()
@@ -71,8 +78,8 @@ def space_tick(node):
         node.start_navigation_by_moves("up")
     if cmd == "down":
         node.start_navigation_by_moves("down")
-    if cmd.startswith("(goto (coordinates "):
-        x_y = cmd.split("(goto (coordinates ")[1].split(")")[0]
+    if cmd.startswith("(go (coordinates "):
+        x_y = cmd.split("(go (coordinates ")[1].split(")")[0]
         x = int(x_y.split(" ")[0])
         y = int(x_y.split(" ")[1])
         node.start_navigation_to_coordinate((x, y))
@@ -101,9 +108,7 @@ if __name__ == "__main__":
         print("pass metta file name")
     with open(sys.argv[1]) as f:
         code = f.read()
-    f = io.StringIO()
-    with contextlib.redirect_stdout(f):
-        result = runner.run(code)
+    result = runner.run(code)
     for x in result:
         print(x)  # Only prints the return value
 
