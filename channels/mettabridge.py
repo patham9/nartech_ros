@@ -106,12 +106,3 @@ def space_tick(node):
     print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE} {objects})"))
 
 space_init()
-if __name__ == "__main__":
-    if len(sys.argv) <= 1:
-        print("pass metta file name")
-    with open(sys.argv[1]) as f:
-        code = f.read()
-    result = runner.run(code)
-    for x in result:
-        print(x)  # Only prints the return value
-
