@@ -1,8 +1,9 @@
 from exploration import *
 from copy import deepcopy
-from narsbridge import narsbridge_init, call_nars, call_nars_tuple
+from narsplugin import narsplugin_init, call_nars, call_nars_tuple
 from hyperon.ext import register_atoms
 from hyperon import *
+import sys
 import time
 import io
 
@@ -40,8 +41,10 @@ def call_ros(*a):
 
 def space_init():
     global runner
-    with open("space.metta", "r") as f:
-        metta_code = f.read()
+    for arg in sys.argv:
+        if arg.endswith(".metta"):
+            with open(arg, "r") as f:
+                metta_code = f.read()
     runner = MeTTa()
     runner.run("""
 (= (nartech.ros.objects.filter $category $objects)
@@ -55,7 +58,7 @@ def space_init():
     runner.register_atom("nartech.ros", call_ros_atom)
     runner.register_atom("nartech.nars", call_nars_atom)
     runner.register_atom("nartech.nars.tuple", call_nars_tuple_atom)
-    narsbridge_init(runner)
+    narsplugin_init(runner)
     result = runner.run(metta_code)
     for x in result:
         print(x)  # Only prints the return value

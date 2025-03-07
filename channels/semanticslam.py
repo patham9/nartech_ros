@@ -163,7 +163,7 @@ class SemanticSLAM:
         self.node.get_logger().info(f"DONE map: {elapsed_time:.2f} seconds")
         # If using metta mode, call space_tick (this call is preserved from the original code)
         import sys
-        if self.robot_lowres_x is not None and "metta" in sys.argv:
+        if self.robot_lowres_x is not None and any(arg.endswith(".metta") for arg in sys.argv):
             space_tick(self.node)
 
     def get_lowres_position(self, world_x, world_y, original_origin, original_resolution):

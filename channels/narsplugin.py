@@ -8,7 +8,7 @@ sys.path.append(os.getcwd())
 from MeTTa import *
 os.chdir(cwd)
 
-def narsbridge_init(runnerinstance):
+def narsplugin_init(runnerinstance):
     global runner
     runner = runnerinstance
     runner.run("""
@@ -43,7 +43,7 @@ def narsbridge_init(runnerinstance):
          (((nartech.ros.command $x) (nartech.ros.command $x))
           (Empty ()))))
 
-(= (nartech.nars.perceive $category $objects)
+(= (nartech.nars.perceive $objects)
    (let* (($obj (superpose $objects))
                 ((detection $category (coordinates $x $y)) $obj))
          (superpose ((nartech.nars (AddBeliefEvent (((($x * $y) * $category) --> perceive) (1.0 0.9))))
