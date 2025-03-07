@@ -1,5 +1,8 @@
 !(nartech.nars (Command volume=0))
-!(nartech.nars (AddBeliefEternal ((((($1 * $2) --> perceive) &/ (({SELF} * $1) --> (^ go))) =/> (($1 * ({SELF} & $2)) --> perceive)) (1.0 0.9))))
+!(nartech.nars (AddBeliefEternal ((((($location * $object) --> perceive) &/
+                                   (({SELF} * $location) --> (^ go))) =/>
+                                     (($location * ({SELF} & $object)) --> perceive))
+                                       (1.0 0.9))))
 
 (= (Step $stepTime $realTime $navstate $objects)
    (if (== $navstate BUSY)
