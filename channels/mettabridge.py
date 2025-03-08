@@ -116,6 +116,8 @@ def space_tick(node = None):
     currentTime += 1
     with gui_lock:
         if gui_ret is not None:
+            runner.run("""!(let $1 (match &self (nartech.gui.value $x) (nartech.gui.value $x))
+                                (remove-atom &self $1))""")
             runner.run("!(add-atom &self (nartech.gui.value " + gui_ret + "))")
             gui_ret = None
     if node is None:

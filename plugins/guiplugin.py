@@ -8,6 +8,7 @@ def guiplugin_init(runnerinstance, guifinishedinstance):
     global runner, guifinished
     runner = runnerinstance
     guifinished = guifinishedinstance
+    runner.run("!(add-atom &self (nartech.gui.value ()))")
 
 def gui_process(conn, title, inputhint, width, height):
     """Run the Tkinter GUI in a separate process and send result back."""
