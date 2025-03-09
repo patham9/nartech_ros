@@ -17,6 +17,6 @@ then open Geany or another Terminal to run the particular AI demo:
 Benefit of this is that this Python3 script can be safely stopped (```sudo killall -9 python3```) and restarted without affecting crucial ROS components and the Gazebo simulation,
 this allows continuous work on AI demos in MeTTa.
 
-### Run monolothic NACE+NARS+GPT input demo:
+### Run monolithic NACE+NARS+GPT input demo:
 
 ```./start_nartech.bash```
