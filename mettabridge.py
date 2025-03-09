@@ -1,7 +1,8 @@
-from exploration import *
-from copy import deepcopy
 import sys
-sys.path.append('../plugins/')
+sys.path.append('./plugins/')
+sys.path.append('./channels/')
+from copy import deepcopy
+from exploration import *
 from narsplugin import narsplugin_init, call_nars, call_nars_tuple
 from guiplugin import guiplugin_init, call_gui
 from hyperon.ext import register_atoms

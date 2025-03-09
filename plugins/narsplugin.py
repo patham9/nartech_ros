@@ -2,7 +2,7 @@ from copy import deepcopy
 from hyperon import *
 #ONA import:
 cwd = os.getcwd()
-os.chdir('../../../../OpenNARS-for-Applications/misc/Python/')
+os.chdir('/home/nartech/OpenNARS-for-Applications/misc/Python/')
 sys.path.append(os.getcwd())
 from MeTTa import *
 os.chdir(cwd)

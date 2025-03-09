@@ -26,10 +26,10 @@ class ObjectDetector:
         self.fx = self.image_width / (2 * np.tan(self.horizontal_fov / 2))
         self.fy = self.image_height / (2 * np.tan(self.horizontal_fov / 2))
         # Load YOLO model and classes
-        self.net = cv2.dnn.readNet('yolov4-tiny.weights', 'yolov4-tiny.cfg')
+        self.net = cv2.dnn.readNet('./channels/yolov4-tiny.weights', './channels/yolov4-tiny.cfg')
         self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
         self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-        with open('coco.names', 'r') as f:
+        with open('./channels/coco.names', 'r') as f:
             self.classes = [line.strip() for line in f.readlines()]
         # Create subscribers and publisher using a QoS profile that keeps only the latest message.
         qos_profile_yolo = rclpy.qos.QoSProfile(depth=1)

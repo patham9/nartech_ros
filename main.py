@@ -3,6 +3,8 @@
 import rclpy
 from rclpy.node import Node
 import tf2_ros
+import sys
+sys.path.append('./channels/')
 from objectdetection import ObjectDetector
 from localization import Localization
 from semanticslam import SemanticSLAM
