@@ -20,3 +20,9 @@ this allows continuous work on AI demos in MeTTa.
 ### Run monolithic NACE+NARS+GPT input demo:
 
 ```./start_nartech.bash```
+
+### Test various MeTTabridge plugins without running ROS:
+
+```python3 mettabridge.py ./plugins/Xplugintests/file.metta```
+
+These plugins can also be used standalone as MeTTa extensions via the MeTTa import command.
