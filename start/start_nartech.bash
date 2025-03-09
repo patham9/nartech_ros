@@ -1,5 +1,5 @@
 if [ "$1" == "metta" ]; then
-    #then execute "python3 main.py metta" to execute space.metta
+    #if you did not also pass name.metta, execute "python3 main.py name.metta" to execute name.metta
     export MY_WORLD=/home/nartech/nartech_ws/src/nartech_ros/worlds/narhouse.sdf
     export QT_QPA_PLATFORM=xcb
     export LIBGL_ALWAYS_SOFTWARE=1
