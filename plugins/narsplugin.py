@@ -42,6 +42,7 @@ def narsplugin_init(runnerinstance):
          (((nartech.ros.command $x) (nartech.ros.command $x))
           (Empty ()))))
 
+;perceive the seen and remembered objects as percept events
 (= (nartech.nars.perceive $objects)
    (let* (($obj (superpose $objects))
                 ((detection $category (coordinates $x $y)) $obj))

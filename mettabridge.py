@@ -42,6 +42,19 @@ def call_ros(*a):
     MeTTaROS2Command = cmd
     return parser.parse(tokenizer)
 
+objects = "()"
+def call_ros_objects(*a):
+    global runner, objects
+    tokenizer = runner.tokenizer()
+    parser = SExprParser(objects)
+    return parser.parse(tokenizer)
+
+def call_ros_navigation(*a):
+    global runner, NAV_STATE
+    tokenizer = runner.tokenizer()
+    parser = SExprParser(NAV_STATE)
+    return parser.parse(tokenizer)
+
 def space_init():
     global runner
     for arg in sys.argv:
@@ -56,6 +69,8 @@ def space_init():
                    $obj)))
     """)
     runner.register_atom("nartech.ros", G(PatternOperation('nartech.ros', wrapnpop(call_ros), unwrap=False)))
+    runner.register_atom("nartech.ros.navigation", G(PatternOperation('nartech.ros.navigation', wrapnpop(call_ros_navigation), unwrap=False)))
+    runner.register_atom("nartech.ros.objects", G(PatternOperation('nartech.ros.objects', wrapnpop(call_ros_objects), unwrap=False)))
     runner.register_atom("nartech.nars", G(PatternOperation('nartech.nars', wrapnpop(call_nars), unwrap=False)))
     runner.register_atom("nartech.nars.tuple", G(PatternOperation('nartech.nars.tuple', wrapnpop(call_nars_tuple), unwrap=False)))
     runner.register_atom("nartech.gui", G(PatternOperation('nartech.gui', wrapnpop(call_gui), unwrap=False)))
@@ -69,7 +84,7 @@ currentTime = 0
 start_time = time.time()
 
 def space_tick(node = None):
-    global currentTime, MeTTaROS2Command, runner
+    global currentTime, MeTTaROS2Command, runner, objects
     elapsedTime = round(time.time() - start_time, 2)
     if elapsedTime < 10 and node is not None:
         return
@@ -92,8 +107,8 @@ def space_tick(node = None):
             node.start_navigation_to_coordinate((x, y))
         alldetections = deepcopy(node.semantic_slam.previous_detections)
         objects = "("
-        if "self" in node.semantic_slam.previous_detections:
-            (t, object_grid_x, object_grid_y, origin_x, origin_y) = node.semantic_slam.previous_detections["self"]
+        if "{SELF}" in node.semantic_slam.previous_detections:
+            (t, object_grid_x, object_grid_y, origin_x, origin_y) = node.semantic_slam.previous_detections["{SELF}"]
             x_y_unknown = BFS_for_nearest_unknown_cell(node.semantic_slam.low_res_grid, node.semantic_slam.new_width, node.semantic_slam.new_height, object_grid_x, object_grid_y)
             if x_y_unknown:
                 (x_unknown,y_unknown) =  x_y_unknown
@@ -103,20 +118,14 @@ def space_tick(node = None):
             (t, object_grid_x, object_grid_y, _, __) = alldetections[category]
             SEXP = f"(detection {category} (coordinates {object_grid_x} {object_grid_y}))"
             objects += SEXP
-            if category == "self":
+            if category == "{SELF}":
                 SELF_position = (object_grid_x, object_grid_y)
         objects += ")"
     currentTime += 1
-    if node is None:
-        print(runner.run(f"!(Step {currentTime} {elapsedTime})"))
-    else:
-        print("NAV_STATE", NAV_STATE, runner.run(f"!(Step {currentTime} {elapsedTime} {NAV_STATE} {objects})"))
+    print("STEP", str(currentTime) +":", runner.run(f"!(Step {currentTime} {elapsedTime})"))
 
 space_init()
 if __name__ == "__main__":
-    t=1
     while True:
         space_tick()
         time.sleep(0.01)
-        print(t, "---------")
-        t+=1

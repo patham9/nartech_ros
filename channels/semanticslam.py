@@ -91,7 +91,7 @@ class SemanticSLAM:
         if self.robot_lowres_x is not None and 0 <= self.robot_lowres_x < self.new_width and 0 <= self.robot_lowres_y < self.new_height:
             robot_idx = self.robot_lowres_y * self.new_width + self.robot_lowres_x
             self.low_res_grid[robot_idx] = 127  # Mark the robot cell.
-            self.previous_detections["self"] = (time.time(), self.robot_lowres_x, self.robot_lowres_y,
+            self.previous_detections["{SELF}"] = (time.time(), self.robot_lowres_x, self.robot_lowres_y,
                                                 original_origin.position.x, original_origin.position.y)
             self.node.get_logger().info(f"Marked robot position at ({self.robot_lowres_x}, {self.robot_lowres_y}) as occupied.")
         else:
@@ -132,7 +132,7 @@ class SemanticSLAM:
                                     transformed_point.point.x, transformed_point.point.y,
                                     original_origin, self.new_resolution
                                 )
-                                if 0 <= object_grid_x < self.new_width and 0 <= object_grid_y < self.new_height:
+                                if category in self.M and 0 <= object_grid_x < self.new_width and 0 <= object_grid_y < self.new_height:
                                     obj_idx = object_grid_y * self.new_width + object_grid_x
                                     self.previous_detections[category] = (time.time(), object_grid_x, object_grid_y,
                                                                           original_origin.position.x, original_origin.position.y)
@@ -154,7 +154,7 @@ class SemanticSLAM:
             new_object_grid_x = object_grid_x + offset_x
             new_object_grid_y = object_grid_y + offset_y
             self.previous_detections[category] = (t, new_object_grid_x, new_object_grid_y, current_origin_x, current_origin_y)
-            if 0 <= new_object_grid_x < self.new_width and 0 <= new_object_grid_y < self.new_height:
+            if category in self.M and 0 <= new_object_grid_x < self.new_width and 0 <= new_object_grid_y < self.new_height:
                 obj_idx = new_object_grid_y * self.new_width + new_object_grid_x
                 if time.time() - t < self.previous_detections_persistence and self.low_res_grid[obj_idx] != 127:
                     self.low_res_grid[obj_idx] = self.M[category]
