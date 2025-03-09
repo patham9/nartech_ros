@@ -1,6 +1,6 @@
-!(nartech.gui ((Enter a goal for NARS)
-               (AddGoalEvent (((?1 * ({SELF} & person)) --> perceive) (1.0 0.9)))))
-(= (narsgoal) (match &self (nartech.gui.value $x) $x))
+!(nartech.gui (1 (Enter a goal for NARS)
+                 (AddGoalEvent (((?1 * ({SELF} & person)) --> perceive) (1.0 0.9)))))
+(= (narsgoal) (nartech.gui 1)) ;first request
 
 !(nartech.nars (Command volume=0))
 !(nartech.nars (AddBeliefEternal ((((($location * $object) --> perceive) &/

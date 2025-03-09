@@ -6,7 +6,6 @@ from narsplugin import narsplugin_init, call_nars, call_nars_tuple
 from guiplugin import guiplugin_init, call_gui
 from hyperon.ext import register_atoms
 from hyperon import *
-import threading
 import time
 import io
 
@@ -42,13 +41,6 @@ def call_ros(*a):
     MeTTaROS2Command = cmd
     return parser.parse(tokenizer)
 
-gui_lock = threading.Lock()
-gui_ret = None
-def gui_finished(value):
-    global gui_ret
-    with gui_lock:
-        gui_ret = value
-
 def space_init():
     global runner
     for arg in sys.argv:
@@ -67,7 +59,7 @@ def space_init():
     runner.register_atom("nartech.nars.tuple", G(PatternOperation('nartech.nars.tuple', wrapnpop(call_nars_tuple), unwrap=False)))
     runner.register_atom("nartech.gui", G(PatternOperation('nartech.gui', wrapnpop(call_gui), unwrap=False)))
     narsplugin_init(runner)
-    guiplugin_init(runner, gui_finished)
+    guiplugin_init(runner)
     result = runner.run(metta_code)
     for x in result:
         print(x)  # Only prints the return value
@@ -76,7 +68,7 @@ currentTime = 0
 start_time = time.time()
 
 def space_tick(node = None):
-    global currentTime, MeTTaROS2Command, gui_ret, runner
+    global currentTime, MeTTaROS2Command, runner
     elapsedTime = round(time.time() - start_time, 2)
     if elapsedTime < 10 and node is not None:
         return
@@ -114,12 +106,6 @@ def space_tick(node = None):
                 SELF_position = (object_grid_x, object_grid_y)
         objects += ")"
     currentTime += 1
-    with gui_lock:
-        if gui_ret is not None:
-            runner.run("""!(let $1 (match &self (nartech.gui.value $x) (nartech.gui.value $x))
-                                (remove-atom &self $1))""")
-            runner.run("!(add-atom &self (nartech.gui.value " + gui_ret + "))")
-            gui_ret = None
     if node is None:
         print(runner.run(f"!(Step {currentTime} {elapsedTime})"))
     else:
