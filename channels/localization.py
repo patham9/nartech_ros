@@ -30,7 +30,7 @@ class Localization:
             return robot_lowres_x, robot_lowres_y
         except Exception as e:
             self.node.get_logger().error(f"Transform exception: {str(e)}")
-            return 0, 0  # Default position if transform fails
+            return None, None  # Default position if transform fails
 
     def set_orientation_with_angle(self, angle_radians):
         if angle_radians is None:

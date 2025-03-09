@@ -88,7 +88,7 @@ class SemanticSLAM:
         # Update robot position using the Localization module.
         self.robot_lowres_x, self.robot_lowres_y = self.localization.get_robot_lowres_position(
             original_origin, original_resolution, self.downsample_factor)
-        if 0 <= self.robot_lowres_x < self.new_width and 0 <= self.robot_lowres_y < self.new_height:
+        if self.robot_lowres_x is not None and 0 <= self.robot_lowres_x < self.new_width and 0 <= self.robot_lowres_y < self.new_height:
             robot_idx = self.robot_lowres_y * self.new_width + self.robot_lowres_x
             self.low_res_grid[robot_idx] = 127  # Mark the robot cell.
             self.previous_detections["self"] = (time.time(), self.robot_lowres_x, self.robot_lowres_y,
