@@ -18,7 +18,7 @@
        (navigation stack busy)
        (let* (($objects  (nartech.ros.objects))
               ($unknowns (nartech.ros.objects.filter unknown $objects)))
-            (superpose ((nartech.nars.perceive $objects)
+             (superpose ((nartech.nars.perceive $objects)
                         (if (or (== () (narsgoal))
                                 (== () (nartech.nars.execute 3 (narsgoal)))) ;3 input circles
                             (let (detection unknown $coordinates) (superpose $unknowns)
