@@ -10,4 +10,4 @@
                                        (1.0 0.9))))
 
 !(nartech.nars (AddBeliefEvent ((((10 * 10) * table) --> perceive) (1.0 0.9))))
-!(nartech.nars.execute 3 (AddGoalEvent (((?1 * ({SELF} & table)) --> perceive) (1.0 0.9))))
+!(nartech.nars.execute 3 (AddGoalEvent (((?1 * ({SELF} & (partOf /1 kitchen))) --> perceive) (1.0 0.9))))
