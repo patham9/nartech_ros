@@ -37,10 +37,15 @@ def narsplugin_init(runnerinstance):
         ($op $args)))
 
 ;execute the operation that NARS wants to execute
-(= (nartech.nars.execute ($Command $Content))
+(= (nartech.nars.executehelper $iteration ($Command $Content))
    (case (nartech.nars.ros (nartech.nars.operation (nartech.nars.tuple ($Command $Content))))
          (((nartech.ros.command $x) (nartech.ros.command $x))
-          (Empty ()))))
+          (Empty (if (> $iteration 1)
+                     (nartech.nars.executehelper (- $iteration 1) ($Command $Content))
+                     ())))))
+
+(= (nartech.nars.execute $cycles ($Command $Content))
+   (nartech.nars.executehelper $cycles ($Command $Content)))
 
 ;perceive the seen and remembered objects as percept events
 (= (nartech.nars.perceive $objects)
@@ -50,13 +55,15 @@ def narsplugin_init(runnerinstance):
                      (nartech.nars (Command concurrent))))))
     """)
 
+commandlist = ["Cycles", "Command", "AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent",
+               "EventQuestion", "EternalQuestion", "(EternalQuestionAboveExpectation", "(EventQuestionAboveExpectation"]
+
 def call_nars_tuple(*a):
     global runner
     cmd = str(a[0])
     unknownCommand = True
     threshold = ""
-    for narscommand in ["Cycles", "Command", "AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent",
-                        "EventQuestion", "EternalQuestion", "(EternalQuestionAboveExpectation", "(EventQuestionAboveExpectation"]:
+    for narscommand in commandlist:
         if cmd.startswith(f"({narscommand} "):
             if narscommand == "(EternalQuestionAboveExpectation":
                 threshold = cmd.split("(EternalQuestionAboveExpectation ")[1].split(" ")[0]
@@ -85,7 +92,7 @@ def call_nars(*a):
     tokenizer = runner.tokenizer()
     cmd = str(a[0])
     unknownCommand = True
-    for narscommand in ["Cycles", "Command", "AddBeliefEvent", "AddBeliefEternal", "AddGoalEvent"]:
+    for narscommand in commandlist:
         if cmd.startswith(f"({narscommand} "):
             ret = NAR_AddInput(f"!({narscommand} "+cmd.split(f"({narscommand} ")[1])
             parser = SExprParser("()")

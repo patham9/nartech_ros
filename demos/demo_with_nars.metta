@@ -1,6 +1,6 @@
 !(nartech.gui (1 (Enter a goal for NARS)
                  (AddGoalEvent (((?1 * ({SELF} & (partOf /1 kitchen))) --> perceive) (1.0 0.9)))))
-(= (narsgoal) (nartech.gui 1)) ;first request
+(= (narsgoal) (nartech.gui 1))
 
 !(nartech.nars (Command volume=0))
 !(nartech.nars (AddBeliefEternal (((fridge * kitchen) --> partOf) (1.0 0.9))))
@@ -15,13 +15,13 @@
 
 (= (Step $stepTime $realTime)
    (if (== (nartech.ros.navigation) BUSY)
-       (navigation stack busy $objects)
-       (let $objects (nartech.ros.objects)
+       (navigation stack busy)
+       (let* (($objects  (nartech.ros.objects))
+              ($unknowns (nartech.ros.objects.filter unknown $objects)))
             (superpose ((nartech.nars.perceive $objects)
                         (if (or (== () (narsgoal))
-                                (== () (nartech.nars.execute (narsgoal))))
-                            (let $unknowns (nartech.ros.objects.filter unknown $objects)
-                                 (let (detection unknown (coordinates $x $y)) (superpose $unknowns)
-                                      (nartech.ros (go (coordinates $x $y)))))
+                                (== () (nartech.nars.execute 3 (narsgoal)))) ;give second chance for execution
+                            (let (detection unknown $coordinates) (superpose $unknowns)
+                                 (nartech.ros (go $coordinates)))
                             Empty)
-                        (nartech.nars (Cycles 10)))))))
+                        (nartech.nars (Cycles 20)))))))
