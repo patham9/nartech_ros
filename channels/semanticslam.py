@@ -21,10 +21,9 @@ class SemanticSLAM:
         self.localization = localization
         self.object_detector = object_detector
         # Mapping from object category to occupancy value
-        self.M = {
-            "wall": 100, "robot": 127, "chair": -126, "table": -126,
-            "bottle": -125, "cup": -125, "can": -125, "person": -124, "unknown": -1
-        }
+        self.M = { "wall": 100, "robot": 127, "chair": -120, "bench": -126, "table": -126,
+                   "bottle": -125, "cup": -125, "can": -125, "person": -124,
+                   "fridge": -123, "sink": -122, "stove": -121, "unknown": -1 }
         self.previous_detections_persistence = 100000.0  # seconds
         self.previous_detections = {}
         # Downsampling parameters
