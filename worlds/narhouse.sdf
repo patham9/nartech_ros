@@ -110,7 +110,7 @@
     <include>
       <uri>https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big</uri>
       <name>shelf_big_4</name>
-      <pose>-1.3000000000000003 18.5 0 0 0 1.5699999999999998</pose>
+      <pose>-1.3000000000000007 18.5 0 0 0 1.5699999999999998</pose>
     </include>
     <include>
       <uri>https://fuel.gazebosim.org/1.0/MovAi/models/shelf</uri>
@@ -120,7 +120,7 @@
     <include>
       <uri>https://fuel.gazebosim.org/1.0/MovAi/models/shelf</uri>
       <name>shelf_1</name>
-      <pose>-6.9999999999999982 23.600000000000001 0 0 0 1.5699999999999998</pose>
+      <pose>-6.9999999999999964 23.600000000000001 0 0 0 1.5699999999999998</pose>
     </include>
     <include>
       <uri>https://fuel.gazebosim.org/1.0/MovAi/models/shelf</uri>
@@ -150,12 +150,12 @@
     <include>
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair</uri>
       <name>chair_0</name>
-      <pose>14.300000000000001 -5.5 0 0 0 3</pose>
+      <pose>12.654761314392092 -1.7843409776687615 0 0 0 1.9098299843376183</pose>
     </include>
     <include>
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair</uri>
       <name>chair_1</name>
-      <pose>14.300000000000001 -4 0 0 0 -2.9999999999999996</pose>
+      <pose>12.868101119995119 -0.14089873433113143 0 0 0 -1.7813099574331437</pose>
     </include>
     <include>
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/foldable_chair</uri>
@@ -185,13 +185,27 @@
     <include>
       <uri>https://fuel.gazebosim.org/1.0/openrobotics/models/Cardboard box</uri>
       <name>Cardboard box</name>
-      <pose>11.34432315826416 -4.5183901786804199 0.36302700638771057 0 0 0</pose>
+      <pose>12.948908805847168 -0.95515698194503784 1.2651699781417847 0 0 0</pose>
     </include>
     <include>
-      <static>false</static>
       <uri>https://fuel.gazebosim.org/1.0/GoogleResearch/models/Toys_R_Us_Treat_Dispenser_Smart_Puzzle_Foobler</uri>
       <name>Toys_R_Us_Treat_Dispenser_Smart_Puzzle_Foobler</name>
-      <pose>-3.0470900535583496 1.4461725950241089 0.11981606483459473 -0.027447699820968764 0 0</pose>
+      <pose>-3.0470900535583496 1.4461725950241089 0.11981606483459473 -0.027447699820968778 0 0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/KitchenCountertop</uri>
+      <name>KitchenCountertop</name>
+      <pose>14.576556205749512 -1.3052109479904175 0.19535380601882935 0.027427600234594895 0.0010490600189522179 3.1033699984710212</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Fridge</uri>
+      <name>Fridge</name>
+      <pose>13.813206672668457 1.0629010200500488 0.13033878803253174 -0.017294700258883161 -0.021314600645293169 -0.8890549993008644</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table</uri>
+      <name>table0_1</name>
+      <pose>12.776895523071289 -0.89309197664260864 0 0 0 0</pose>
     </include>
   </world>
 </sdf>
