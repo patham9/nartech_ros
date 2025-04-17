@@ -57,6 +57,7 @@ def call_ros_navigation(*a):
 
 def space_init():
     global runner
+    metta_code = None
     for arg in sys.argv:
         if arg.endswith(".metta"):
             with open(arg, "r") as f:
@@ -76,9 +77,10 @@ def space_init():
     runner.register_atom("nartech.gui", G(PatternOperation('nartech.gui', wrapnpop(call_gui), unwrap=False)))
     narsplugin_init(runner)
     guiplugin_init(runner)
-    result = runner.run(metta_code)
-    for x in result:
-        print(x)  # Only prints the return value
+    if metta_code is not None:
+        result = runner.run(metta_code)
+        for x in result:
+            print(x)  # Only prints the return value
 
 currentTime = 0
 start_time = time.time()
