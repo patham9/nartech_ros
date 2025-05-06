@@ -1,110 +1,103 @@
-import tkinter as tk
+import sys
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout,
+    QLineEdit, QGroupBox, QHBoxLayout
+)
+from openai import OpenAI
 
-M = {100: 'o', 127: 'x', -126: 'T', -125: "u", -124: 'w'} #reversed mapping from grid.py
-objects = {"wall" : 'o', "agent" : 'x', "robot": "x",
-           "chair" : "T", "table": "T",
-           "cup"  : "u", "can": "u", "bottle": "u", "person": "w"}
-
+M = {100: 'o', 127: 'x', -126: 'T', -125: "u", -124: 'w'}
+objects = {"wall": 'o', "agent": 'x', "robot": "x",
+           "chair": "T", "table": "T",
+           "cup":  "u", "can": "u", "bottle": "u", "person": "w"}
 AllObjects = list(objects.keys())
 
 OpenAI_API_KEY_missing = False
-from openai import OpenAI
 try:
     client = OpenAI()
 except:
     OpenAI_API_KEY_missing = True
     print("OpenAI client is not defined!")
 
-def encode_sentence(Sentence = "The wall should be near the table"):
+def encode_sentence(Sentence="The wall should be near the table"):
     Prompt = f"Objects: {str(AllObjects)}"
     Prompt += f"\n Sentence: {Sentence}"
     Prompt += "\nStatements can be of the form !(AddGoalEvent (((SUBJECT x PREDICATE) --> near) (1.0 0.90)))"
     Prompt += "\n Please build a statement that is close in meaning to the sentence, whereby SUBJECT and PREDICATE need to be among the objects."
     Prompt += "\n and include only the statement in your response, nothing else!"
     completion = client.chat.completions.create(
-      model="o1-preview", #gpt-4o, o1-preview
-      messages=[
-        {"role": "user", "content": Prompt}
-      ]
+        model="o1-preview",
+        messages=[
+            {"role": "user", "content": Prompt}
+        ]
     )
     response = completion.choices[0].message.content
     for obj in AllObjects:
         response = response.replace(obj, objects[obj])
     return response
 
-def comm_input():
-    obtainedtext = encode_sentence(textinput.get())
-    entry.delete(0, tk.END)  # Clear the current content
-    entry.insert(0, obtainedtext)  # Set the new value
+class InputGUI(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Input GUI")
 
-def submit_input():
-    label.config(text=label_text)
-    input_text = entry.get()
-    if input_text == "":
-        label.config(text="Input missing.")
-        return
-    with open("/home/nartech/NACE/input.metta", "w") as file:
-        file.write(input_text)
-    #label.config(text="Input submitted.")
-    entry.delete(0, tk.END)
+        self.layout = QVBoxLayout()
+        self.label = QLabel("Add natural language command:" if not OpenAI_API_KEY_missing else "OpenAI API key missing!")
+        self.layout.addWidget(self.label)
 
-def add_wait():
-    label.config(text=label_text)
-    entry.delete(0, tk.END)  # Clear the current content
-    entry.insert(0, "!(wait)")  # Set the new value
+        if not OpenAI_API_KEY_missing:
+            self.text_input = QLineEdit()
+            self.layout.addWidget(self.text_input)
+            self.comm_button = QPushButton("Communicate")
+            self.comm_button.clicked.connect(self.comm_input)
+            self.layout.addWidget(self.comm_button)
 
-def add_reach_human():
-    label.config(text=label_text)
-    entry.delete(0, tk.END)  # Clear the current content
-    entry.insert(0, "!(AddGoalEvent (((x x w) --> near) (1.0 0.90)))")  # Set the new value
+        self.examples_box = QGroupBox("Examples")
+        self.examples_layout = QVBoxLayout()
 
-def add_reach_chair():
-    label.config(text=label_text)
-    entry.delete(0, tk.END)  # Clear the current content
-    entry.insert(0, "!(AddGoalEvent (((x x T) --> near) (1.0 0.90)))")  # Set the new value
+        self.add_wait_button = QPushButton("Wait!")
+        self.add_wait_button.clicked.connect(lambda: self.set_entry("!(wait)"))
+        self.examples_layout.addWidget(self.add_wait_button)
 
+        self.add_reach_human_button = QPushButton("Reach human!")
+        self.add_reach_human_button.clicked.connect(lambda: self.set_entry("!(AddGoalEvent (((x x w) --> near) (1.0 0.90)))"))
+        self.examples_layout.addWidget(self.add_reach_human_button)
 
-# Create the main window
-root = tk.Tk()
-root.title("Input GUI")
+        self.add_reach_chair_button = QPushButton("Reach chair!")
+        self.add_reach_chair_button.clicked.connect(lambda: self.set_entry("!(AddGoalEvent (((x x T) --> near) (1.0 0.90)))"))
+        self.examples_layout.addWidget(self.add_reach_chair_button)
 
-if OpenAI_API_KEY_missing:
-    issuelabel = tk.Label(root, text="OpenAI API key missing, export it in .bashrc to allow for NL input!")
-    issuelabel.pack(pady=10)
-    label_text = ''
-else:
-    label_text = "Add natural language command:"
+        self.examples_box.setLayout(self.examples_layout)
+        self.layout.addWidget(self.examples_box)
 
-# Add a label for status
-label = tk.Label(root, text=label_text)
-label.pack(pady=10)
+        self.entry = QLineEdit()
+        self.layout.addWidget(self.entry)
 
-# Add input field
-if not OpenAI_API_KEY_missing:
-    textinput = tk.Entry(root, width=50)
-    textinput.pack(pady=10)
-    # Add submit button
-    comm_button = tk.Button(root, text="Communicate", command=comm_input)
-    comm_button.pack(pady=10)
+        self.submit_button = QPushButton("Submit")
+        self.submit_button.clicked.connect(self.submit_input)
+        self.layout.addWidget(self.submit_button)
 
-# Add "Examples" category
-examples_frame = tk.LabelFrame(root, text="Examples", padx=10, pady=10)
-examples_frame.pack(pady=10)
+        self.setLayout(self.layout)
+        self.resize(400, 300)
 
-# Add buttons to the "Examples" category
-add_wait_button = tk.Button(examples_frame, text="Wait!", command=add_wait)
-add_wait_button.pack(pady=5)
-add_reach_human_button = tk.Button(examples_frame, text="Reach human!", command=add_reach_human)
-add_reach_human_button.pack(pady=5)
-add_reach_chair_button = tk.Button(examples_frame, text="Reach chair!", command=add_reach_chair)
-add_reach_chair_button.pack(pady=5)
+    def set_entry(self, text):
+        self.entry.setText(text)
 
-entry = tk.Entry(root, width=50)
-entry.pack(pady=10)
+    def comm_input(self):
+        sentence = self.text_input.text()
+        obtainedtext = encode_sentence(sentence)
+        self.entry.setText(obtainedtext)
 
-# Add submit button
-submit_button = tk.Button(root, text="Submit", command=submit_input)
-submit_button.pack(pady=10)
+    def submit_input(self):
+        input_text = self.entry.text()
+        if input_text == "":
+            self.label.setText("Input missing.")
+            return
+        with open("/home/nartech/NACE/input.metta", "w") as file:
+            file.write(input_text)
+        self.entry.clear()
 
-# Run the application
-root.mainloop()
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    gui = InputGUI()
+    gui.show()
+    sys.exit(app.exec_())
