@@ -1,5 +1,7 @@
 # nartech_ros
 
+<img width="1071" alt="Image" src="https://github.com/user-attachments/assets/6fcfeaab-55b6-4637-900d-85dc41922a97" />
+
 ### Run all necessary ROS nodes, Gazebo simulation, and AI demo file from demos folder:
 
 ```./start_nartech.bash metta demo_with_nars.metta```
