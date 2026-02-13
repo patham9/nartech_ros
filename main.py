@@ -8,8 +8,8 @@ sys.path.append('./channels/')
 from objectdetection import ObjectDetector
 from localization import Localization
 from semanticslam import SemanticSLAM
-from navigation import Navigation
-from armcontroller import ArmController
+from navigat import Navigation
+#from armcontroller import ArmController
 from rclpy.parameter import Parameter
 from rclpy.duration import Duration
 
@@ -27,9 +27,9 @@ class MainNode(Node):
         self.semantic_slam = SemanticSLAM(self, self.tf_buffer, self.localization, self.object_detector)
         self.navigation = Navigation(self, self.semantic_slam, self.localization)
         self.start_navigation_to_coordinate = self.navigation.start_navigation_to_coordinate
-        self.arm_controller = ArmController(self, self.semantic_slam, self.navigation)
-        self.pick = self.arm_controller.pick
-        self.drop = self.arm_controller.drop
+        #self.arm_controller = ArmController(self, self.semantic_slam, self.navigation)
+        #self.pick = self.arm_controller.pick
+        #self.drop = self.arm_controller.drop
 
 def main(args=None):
     rclpy.init(args=args)

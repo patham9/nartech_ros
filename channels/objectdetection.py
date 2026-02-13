@@ -27,7 +27,7 @@ class ObjectDetector:
         self.fx = self.image_width / (2 * np.tan(self.horizontal_fov / 2))
         self.fy = self.image_height / (2 * np.tan(self.horizontal_fov / 2))
         # Load YOLO model and classes
-        self.net = cv2.dnn.readNet('./channels/yolov4-tiny.weights', './channels/yolov4-tiny.cfg')
+        self.net = cv2.dnn.readNet('./channels/yolov4.weights', './channels/yolov4.cfg')
         self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
         self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
         with open('./channels/coco.names', 'r') as f:
@@ -37,9 +37,9 @@ class ObjectDetector:
         qos_profile_yolo.history = rclpy.qos.QoSHistoryPolicy.KEEP_LAST
         qos_profile_yolo.durability = rclpy.qos.QoSDurabilityPolicy.VOLATILE
         self.image_sub = self.node.create_subscription(
-            Image, '/rgbd_camera/image', self.image_callback, qos_profile_yolo)
+            Image, '/ascamera/camera_publisher/rgb0/image', self.image_callback, qos_profile_yolo)
         self.depth_sub = self.node.create_subscription(
-            Image, '/rgbd_camera/depth_image', self.depth_callback, qos_profile_yolo)
+            Image, '/ascamera/camera_publisher/depth0/image_raw', self.depth_callback, qos_profile_yolo)
         self.image_pub = self.node.create_publisher(Image, '/yolo_output/image', qos_profile_yolo)
 
     def image_callback(self, msg):

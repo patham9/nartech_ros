@@ -27,7 +27,7 @@ class SemanticSLAM:
         self.previous_detections_persistence = 100000.0  # seconds
         self.previous_detections = {}
         # Downsampling parameters
-        self.downsample_factor = 28
+        self.downsample_factor = 5 #28
         # Set up a QoS profile for map topics.
         qos_profile_map = QoSProfile(depth=1)
         qos_profile_map.history = QoSHistoryPolicy.KEEP_LAST
@@ -112,7 +112,7 @@ class SemanticSLAM:
                         if depth_image is None:
                             self.node.get_logger().warn("Got detections but no depth image")
                             continue
-                        depth_value = depth_image[center_y, center_x]
+                        depth_value = float(depth_image[center_y, center_x]) * 0.001
                         category = self.object_detector.classes[class_id]
                         if category == "sports ball" or category == "orange":
                             category = "frisbee"
@@ -121,7 +121,7 @@ class SemanticSLAM:
                             self.node.get_logger().info(f"DEPTH DEBUG: {depth_value}")
                             # Create a point in camera coordinates.
                             camera_point = PointStamped(
-                                header=Header(stamp=Time().to_msg(), frame_id='oakd_left_camera_frame'),
+                                header=Header(stamp=Time().to_msg(), frame_id='depth_cam_link'),
                                 point=Point(
                                     x=depth_value,
                                     y=-(center_x - (self.object_detector.width / 2)) * depth_value / self.object_detector.fx,
